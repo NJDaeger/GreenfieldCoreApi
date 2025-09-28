@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GreenfieldCoreApi", "GreenfieldCoreApi\GreenfieldCoreApi.csproj", "{9B24445B-510E-4BAE-92DF-3A241BCE23E6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GreenfieldCoreServices", "GreenfieldCoreServices\GreenfieldCoreServices.csproj", "{72D62016-2D45-4AA4-AE9D-CD4B2C2F79C2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GreenfieldCoreDataAccess", "GreenfieldCoreDataAccess\GreenfieldCoreDataAccess.csproj", "{2DB3C0AB-607A-41D8-BC86-6458855C61F9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9B24445B-510E-4BAE-92DF-3A241BCE23E6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B24445B-510E-4BAE-92DF-3A241BCE23E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B24445B-510E-4BAE-92DF-3A241BCE23E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B24445B-510E-4BAE-92DF-3A241BCE23E6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{72D62016-2D45-4AA4-AE9D-CD4B2C2F79C2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{72D62016-2D45-4AA4-AE9D-CD4B2C2F79C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{72D62016-2D45-4AA4-AE9D-CD4B2C2F79C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{72D62016-2D45-4AA4-AE9D-CD4B2C2F79C2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2DB3C0AB-607A-41D8-BC86-6458855C61F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2DB3C0AB-607A-41D8-BC86-6458855C61F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2DB3C0AB-607A-41D8-BC86-6458855C61F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2DB3C0AB-607A-41D8-BC86-6458855C61F9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
