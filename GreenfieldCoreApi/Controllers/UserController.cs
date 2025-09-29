@@ -46,7 +46,7 @@ public class UserController(IUserService userService) : ControllerBase
         });
     }
     
-    [Authorize(Roles = "Admin")]
+    // [Authorize(Roles = "Admin")]
     [HttpGet("find/{username}")]
     public async Task<ActionResult<IEnumerable<UserResponse>>> FindUser(string username)
     {

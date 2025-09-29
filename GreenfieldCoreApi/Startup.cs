@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Asp.Versioning;
 using GreenfieldCoreServices.Services;
 using GreenfieldCoreServices.Services.Interfaces;
+using Microsoft.AspNetCore.HttpOverrides;
 using Scalar.AspNetCore;
 
 namespace GreenfieldCoreApi;
@@ -40,6 +41,12 @@ public static class Startup
             app.MapScalarApiReference();
         }
         app.UseAuthentication();
+        
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+        });
+        
         app.UseHttpsRedirection();
         app.MapControllers();
     }
