@@ -52,10 +52,7 @@ public static class Startup
         app.MapOpenApi();
         app.MapScalarApiReference();
         app.UseAuthentication();
-        if (!app.Environment.IsDevelopment())
-        {
-            app.UseHttpsRedirection();
-        }
+        app.UseHttpsRedirection();
         app.MapControllers();
     }
     
