@@ -43,7 +43,7 @@ public static class Startup
             ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
         };
         
-        var knownProxies = ParseKnownProxies(logger, app.Configuration["Known-Proxies"]);
+        var knownProxies = ParseKnownProxies(logger, app.Configuration["known-proxies"]);
         knownProxies.ForEach(forwardedHeadersOptions.KnownProxies.Add);
         logger.LogInformation("Configured {KnownProxiesCount} known proxies: {Join}", knownProxies.Count, string.Join(", ", knownProxies));
         
