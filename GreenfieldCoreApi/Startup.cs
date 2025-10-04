@@ -1,5 +1,6 @@
 using System.Net;
 using Asp.Versioning;
+using GreenfieldCoreServices.Commands;
 using GreenfieldCoreServices.Services;
 using GreenfieldCoreServices.Services.Interfaces;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -15,6 +16,13 @@ public static class Startup
         services.AddSingleton<IUserService, UserService>();
     }
 
+    internal static void ConfigureCommandServices(this IServiceCollection services)
+    {
+        // services.AddSingleton<ICommandProcessService, CommandProcessService>();
+        services.AddHostedService<CommandProcessService>();
+        services.AddKeyedSingleton<ICommand, TestCommand>("test");
+    }
+    
     internal static void ConfigureWebServices(this IServiceCollection services)
     {
         services.AddApiVersioning(x =>
@@ -50,7 +58,10 @@ public static class Startup
         app.UseForwardedHeaders(forwardedHeadersOptions);
         
         app.MapOpenApi();
-        app.MapScalarApiReference();
+        app.MapScalarApiReference(options =>
+        {
+            options.WithLayout(ScalarLayout.Classic);
+        });
         app.UseAuthentication();
         app.UseHttpsRedirection();
         app.MapControllers();
