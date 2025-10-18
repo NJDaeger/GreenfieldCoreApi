@@ -6,6 +6,16 @@ public interface ICommand
 {
 
     /// <summary>
+    /// Gets the description of the command.
+    /// </summary>
+    string Description { get; }
+    
+    /// <summary>
+    /// Gets the usage string for the command.
+    /// </summary>
+    string Usage { get; }
+    
+    /// <summary>
     /// Executes the command with the given alias and arguments.
     /// </summary>
     /// <param name="logger">The command process logger</param>

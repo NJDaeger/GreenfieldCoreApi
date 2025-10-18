@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using GreenfieldCoreServices.Commands.Exceptions;
 
 namespace GreenfieldCoreServices.Services;
 
@@ -41,7 +42,8 @@ public class CommandProcessService(ILogger<ICommandProcessService> logger, IServ
         var commandName = parts[0];
         var args = parts.Skip(1).ToArray();
 
-        var command = serviceProvider.GetKeyedService<ICommand>(commandName.ToLower());
+        using var scope = serviceProvider.CreateScope();
+        var command = scope.ServiceProvider.GetKeyedService<ICommand>(commandName.ToLower());
 
         if (command is not null)
         {
@@ -49,8 +51,13 @@ public class CommandProcessService(ILogger<ICommandProcessService> logger, IServ
             {
                 logger.LogInformation("Executing command: {Command}", commandLine);
                 await command.Execute(logger, commandName, args, _stoppingToken);
-                logger.LogInformation("Completed command: {Command}", commandLine);
-            } catch (OperationCanceledException)
+                logger.LogDebug("Completed command: {Command}", commandLine);
+            }
+            catch (CommandExecutionException e)
+            {
+                logger.Log(e.LogLevel, "{Message}", e.Message);
+            }
+            catch (OperationCanceledException)
             {
                 logger.LogInformation("Execution cancelled: {Command}", commandLine);
             }

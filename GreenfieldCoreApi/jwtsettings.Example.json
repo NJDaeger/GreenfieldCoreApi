@@ -1,0 +1,7 @@
+{
+  "jwtSettings": {
+    "issuer": "YourIssuer",
+    "audience": "YourAudience",
+    "key": "YourKey"
+  }
+}

@@ -13,7 +13,7 @@ namespace GreenfieldCoreApi.Controllers;
 [Produces("application/json")]
 public class UserController(IUserService userService) : ControllerBase
 {
-    // [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin")]
     [HttpPost("create")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     public async Task<ActionResult<UserResponse>> CreateUser(Guid minecraftUuid, string minecraftUsername,  string? displayName)

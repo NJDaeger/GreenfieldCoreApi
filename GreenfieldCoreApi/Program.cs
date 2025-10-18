@@ -1,13 +1,17 @@
 using GreenfieldCoreApi;
-using GreenfieldCoreServices.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.ConfigureServices();
-builder.Services.ConfigureCommandServices();
+builder.Configuration.ConfigureConfiguration(builder.Environment);
+builder.Services.ConfigureDatabases();
 builder.Services.ConfigureWebServices();
+builder.Services.ConfigureAuthentication(builder.Configuration);
+builder.Services.ConfigureCommandServices();
 
 var app = builder.Build();
+
+await app.Services.PerformDatabaseMigrations();
 
 app.ConfigureWebApplication();
 
