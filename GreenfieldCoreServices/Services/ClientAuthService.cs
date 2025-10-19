@@ -20,23 +20,17 @@ public class ClientAuthService(IUnitOfWork uow, IConfiguration config) : IClient
         var hashedSecret = HashClientSecret(clientSecret);
         
         uow.BeginTransaction();
+        var repo = uow.Repository<IClientRepository>();
         
-        var newClient = await uow.Repository<IClientRepository>().RegisterClient(clientName, hashedSecret.hash, hashedSecret.salt);
+        var newClient = await repo.RegisterClient(clientName, hashedSecret.hash, hashedSecret.salt);
 
         var assignedRoles = new List<string>();
-        var assignmentTasks = roles.Select(role =>
+        foreach (var role in roles)
         {
-            try
-            {
-                return uow.Repository<IClientRepository>().AssignRoleToClient(newClient.Item1, role);   
-            }
-            catch (Exception)
-            {
-                return Task.FromResult<ClientRoleEntity?>(null);
-            }
-        });
-        var results = await Task.WhenAll(assignmentTasks);
-        assignedRoles.AddRange(results.Where(r => r != null).Select(r => r!.RoleName));
+            var assignedRole = await repo.AssignRoleToClient(newClient.Item1, role);
+            if (assignedRole == null) continue;
+            assignedRoles.Add(assignedRole.RoleName);
+        }
         
         uow.CompleteAndCommit();
         

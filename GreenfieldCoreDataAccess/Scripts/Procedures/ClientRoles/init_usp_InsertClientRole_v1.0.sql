@@ -8,6 +8,6 @@ begin
         values (p_ClientId, p_RoleName);
 
         select cr.ClientRoleId, cr.ClientId, cr.RoleName, cr.CreatedOn from ClientRoles cr
-        where cr.ClientId = p_ClientId and cr.RoleName = cr.RoleName;
+        where cr.ClientId = p_ClientId and cr.RoleName = p_RoleName;
     end if;
 end;
