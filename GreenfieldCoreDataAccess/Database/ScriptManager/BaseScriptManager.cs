@@ -28,9 +28,8 @@ public abstract class BaseScriptManager : IScriptManager
     
     public async Task ApplyPendingScripts(CancellationToken cancellationToken)
     {
+        var scriptBeingApplied = "";
         if (!Directory.Exists(ScriptsRoot)) return;
-
-        var count = 0;
 
         try
         {
@@ -52,13 +51,16 @@ public abstract class BaseScriptManager : IScriptManager
             foreach (var script in scriptObjects)
             {
                 if (cancellationToken.IsCancellationRequested) break;
+                scriptBeingApplied = script.FilePath;
                 await RunScriptAsync(script, groupedScripts, processed, visiting, cancellationToken);
+                var newPercentage = (int)((processed.Count / (double)scriptObjects.Count) * 100);
+                _logger.LogInformation("Script application progress: {Percentage:F2}%", newPercentage);
             }
         }
         catch (Exception ex)
         {
             UnitOfWork.Rollback();
-            _logger.LogError(ex, "Error applying scripts.");
+            _logger.LogError(ex, "Error applying scripts... Last script attempted: {Script}", scriptBeingApplied);
             throw;
         }
         finally

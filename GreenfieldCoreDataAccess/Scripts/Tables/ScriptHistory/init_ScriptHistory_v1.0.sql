@@ -1,4 +1,5 @@
 create table if not exists ScriptHistory (
+    ScriptHistoryId bigint not null unique auto_increment,
     IsInit bit not null,
     AppliesTo nvarchar(255) not null,
     Major int not null,

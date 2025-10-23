@@ -52,8 +52,7 @@ public static class Startup
     internal static void ConfigureCommandServices(this IServiceCollection services)
     {
         services.AddHostedService<CommandProcessService>();
-        services.AddKeyedTransient<ICommand, RegisterClientCommand>("register-client");
-        services.AddKeyedTransient<ICommand, ListClientsCommand>("list-clients");
+        services.AddKeyedTransient<ICommand, ClientCommand>("client");
     }
     
     internal static void ConfigureAuthentication(this IServiceCollection services, ConfigurationManager configurationManager)

@@ -5,15 +5,13 @@ namespace GreenfieldCoreServices.Services.Interfaces;
 
 public interface IUserService
 {
-    
     /// <summary>
     /// Creates a new user
     /// </summary>
     /// <param name="minecraftUuid">The minecraft UUID of this user</param>
     /// <param name="username">The minecraft username of this user</param>
-    /// <param name="displayName">The displayname of this user, optional.</param>
     /// <returns>Result containing the created user, or a bad result with a null user if the user could not be created.</returns>
-    public Task<Result<User?>> CreateUser(Guid minecraftUuid, string username, string? displayName);
+    public Task<Result<User?>> CreateUser(Guid minecraftUuid, string username);
     
     /// <summary>
     /// Get a user by their minecraft uuid

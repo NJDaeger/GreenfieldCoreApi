@@ -7,14 +7,14 @@ namespace GreenfieldCoreServices.Services;
 
 public class UserService : IUserService
 {
-    public Task<Result<User?>> CreateUser(Guid minecraftUuid, string username, string? displayName)
+    public Task<Result<User?>> CreateUser(Guid minecraftUuid, string username)
     {
         return Task.FromResult(Ok(new User
         {
             UserId = 1,
             MinecraftUuid = minecraftUuid,
             Username = username,
-            DisplayName = displayName
+            DisplayName = "displayName"
         }));
     }
 

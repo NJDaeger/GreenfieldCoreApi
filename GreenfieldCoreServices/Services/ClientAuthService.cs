@@ -16,20 +16,18 @@ public class ClientAuthService(IUnitOfWork uow, IConfiguration config) : IClient
     
     public async Task<(Client client, string secret)> RegisterClient(string clientName, List<string> roles)
     {
-        var clientSecret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-        var hashedSecret = HashClientSecret(clientSecret);
+        var generatedSecret = GenerateClientSecret();
         
         uow.BeginTransaction();
         var repo = uow.Repository<IClientRepository>();
         
-        var newClient = await repo.RegisterClient(clientName, hashedSecret.hash, hashedSecret.salt);
+        var newClient = await repo.RegisterClient(clientName, generatedSecret.hashedSecret, generatedSecret.salt);
 
         var assignedRoles = new List<string>();
         foreach (var role in roles)
         {
             var assignedRole = await repo.AssignRoleToClient(newClient.Item1, role);
-            if (assignedRole == null) continue;
-            assignedRoles.Add(assignedRole.RoleName);
+            if (assignedRole) assignedRoles.Add(role);
         }
         
         uow.CompleteAndCommit();
@@ -40,7 +38,7 @@ public class ClientAuthService(IUnitOfWork uow, IConfiguration config) : IClient
             ClientName = clientName,
             CreatedOn = newClient.Item2,
             Roles = assignedRoles
-        }, clientSecret);
+        }, generatedSecret.secret);
     }
 
     public async Task<string> AuthenticateLogin(Guid clientId, string clientSecret)
@@ -78,6 +76,151 @@ public class ClientAuthService(IUnitOfWork uow, IConfiguration config) : IClient
             });
         }
         return clients;
+    }
+
+    public async Task<Client?> GetClientById(Guid clientId)
+    {
+        var repo = uow.Repository<IClientRepository>();
+        
+        var foundClient = await repo.GetClientById(clientId);
+        
+        if (foundClient == null) return null;
+        
+        var roles = await repo.GetClientRoles(clientId);
+        var roleNames = roles.Select(r => r.RoleName).ToList();
+        
+        return new Client
+        {
+            ClientId = foundClient.ClientId,
+            ClientName = foundClient.ClientName,
+            CreatedOn = foundClient.CreatedOn,
+            Roles = roleNames
+        };
+    }
+
+    public async Task<Client?> GetClientByName(string clientName)
+    {
+        var repo = uow.Repository<IClientRepository>();
+        
+        var foundClient = await repo.GetClientByName(clientName);
+        
+        if (foundClient == null) return null;
+        
+        var roles = await repo.GetClientRoles(foundClient.ClientId);
+        var roleNames = roles.Select(r => r.RoleName).ToList();
+        
+        return new Client
+        {
+            ClientId = foundClient.ClientId,
+            ClientName = foundClient.ClientName,
+            CreatedOn = foundClient.CreatedOn,
+            Roles = roleNames
+        };
+    }
+
+    public async Task<Client?> DeleteClient(Guid clientId)
+    {
+        var foundClient = await GetClientById(clientId);
+        if (foundClient == null) return null;
+        
+        uow.BeginTransaction();
+        var deleteTask = await uow.Repository<IClientRepository>().DeleteClient(clientId);
+        
+        if (!deleteTask) return null;
+        
+        uow.CompleteAndCommit();
+        
+        return foundClient;
+    }
+
+    public async Task<Client?> UpdateClientRoles(Guid clientId, List<string> roles)
+    {
+        var foundClient = await GetClientById(clientId);
+        if (foundClient == null) return null;
+        
+        var repo = uow.Repository<IClientRepository>();
+        var currentRoles = foundClient.Roles;
+        var rolesToAdd = roles.Except(currentRoles).ToList();
+        var rolesToRemove = currentRoles.Except(roles).ToList();
+        
+        uow.BeginTransaction();
+        
+        foreach (var role in rolesToAdd)
+        {
+            var addedRole = await repo.AssignRoleToClient(clientId, role);
+            if (addedRole) currentRoles.Add(role);
+        }
+
+
+        foreach (var role in rolesToRemove)
+        {
+            var removedRole = await repo.RemoveRoleFromClient(clientId, role);
+            if (removedRole) currentRoles.Remove(role);
+        }
+        
+        uow.CompleteAndCommit();
+        
+        foundClient.Roles = currentRoles;
+        
+        return foundClient;
+    }
+
+    public async Task<string?> RefreshClientSecret(Guid clientId)
+    {
+        var foundClient = await GetClientById(clientId);
+        if (foundClient == null) return null;
+        
+        var newSecret = GenerateClientSecret();
+        
+        uow.BeginTransaction();
+        
+        await uow.Repository<IClientRepository>().UpdateClientSecret(clientId, newSecret.hashedSecret, newSecret.salt);
+        
+        uow.CompleteAndCommit();
+        
+        return newSecret.secret;
+    }
+
+    public async Task<Client?> UpdateClientName(Guid clientId, string newName)
+    {
+        var foundClient = await GetClientById(clientId);
+        if (foundClient == null) return null;
+        
+        uow.BeginTransaction();
+        
+        var updateResult = await uow.Repository<IClientRepository>().UpdateClientName(clientId, newName);
+        if (!updateResult) return null;
+        
+        uow.CompleteAndCommit();
+        
+        foundClient.ClientName = newName;
+        return foundClient;
+    }
+
+    public async Task<Client?> ClearClientRoles(Guid clientId)
+    {
+        var foundClient = await GetClientById(clientId);
+        if (foundClient == null) return null;
+        
+        uow.BeginTransaction();
+        
+        var removalCount = await uow.Repository<IClientRepository>().ClearClientRoles(clientId);
+        
+        if (removalCount == 0) return null;
+        
+        uow.CompleteAndCommit();
+
+        if (foundClient.Roles.Count != removalCount) return await GetClientById(clientId);
+        
+        foundClient.Roles.Clear();
+        return foundClient;
+    }
+
+    private static (string secret, string hashedSecret, string salt) GenerateClientSecret()
+    {
+        var clientSecret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        var (hashedSecret, salt) = HashClientSecret(clientSecret);
+        return (clientSecret, hashedSecret, salt);
     }
 
     private static (string hash, string salt) HashClientSecret(string clientSecret, string? salt = null)
