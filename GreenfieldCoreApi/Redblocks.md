@@ -32,6 +32,7 @@ The combination of redblockId and projectId is unique, and keyNumber is an auto-
 | Column    | DataType     | Constraints    |
 |-----------|--------------|----------------|
 | statusId  | bigint       | PK             |
+| redblockId | bigint       | FK Redblock.Redblock |
 | status    | nvarchar(32) | utf8mb4        |
 | createdBy | bigint       | FK Users.Users |
 | createdOn | datetime     |                |
