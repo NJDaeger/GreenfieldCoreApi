@@ -25,8 +25,8 @@ create trigger `Redblocks.trg_UsersBeforeDelete_SetRedblocksCreatedBy`
     set rb.CreatedBy = 1
     where rb.CreatedBy = old.UserId;
 
-drop trigger if exists `Redblocks.trg_UsersBeforeDelete_SetRedblocksCreatedBy`;
-create trigger `Redblocks.trg_UsersBeforeDelete_SetRedblocksCreatedBy`
+drop trigger if exists `Redblocks.trg_UsersBeforeDelete_SetRedblocksDeletedBy`;
+create trigger `Redblocks.trg_UsersBeforeDelete_SetRedblocksDeletedBy`
     before delete on `Users.Users`
     for each row
     update `Redblocks.Redblocks` rb

@@ -65,6 +65,37 @@ The combination of redblockId and projectId is unique, and keyNumber is an auto-
 * `/redblocks/projects/{projectId}/redblocks` - GET: List all redblocks in a project
   * Should be paginated.
   * Body should include filters for status, assigned users, assigned roles.
+```json
+{
+    "status": { //null = no status filter
+        "statuses": ["approved", "pending", "incomplete"], //[] = look for items with no status
+        "matchType": "value" //"or" = any one of, "not" = none of
+    },
+    "deletionStatus": { //null = show anything regardless of deletion status
+        "users": [123, 456], //[] with an or matchType means show anything deleted by any user, [] with a not matchType means show anything not deleted by any user
+        "matchType": "value" // "or" = redblock deleted by any of these users, "not" = redblock not deleted by any of these users
+    },
+    "userAssignmentStatus": {
+        "users": [123, 456], // [] with an and match type means show anything not assigned to any user, [] with an or match type means show any redblock regardless of user assignment, [] with a not match type means show anything assigned to any user.
+        "matchType": "value" // "and" = redblock assigned to all listed users, "or" = redblock has any one of the users assigned to it, "not" = redblock does not have any of the users assigned to it
+    },
+    "roleAssignmentStatus": {
+        "roles": ["builder", "architect"], // [] with an and match type means show anything not assigned to any role, [] with an or match type means show any redblock regardless of role assignment, [] with a not match type means show anything assigned to any role.
+        "matchType": "value" //"and" = redblock assigned to all listed roles, "or" = redblock has any one of the roles assigned to it, "not" = redblock does not have any of the roles assigned to it
+    },
+    "message": {
+        "content": "search text",
+        "matchType": "value"
+      // match types:
+      // "contains" = redblock message contains the search text
+      // "exact" = redblock message exactly matches the search text
+      // "startsWith" = redblock message starts with the search text
+      // "endsWith" = redblock message ends with the search text
+      // "regex" = redblock message matches the regex pattern in the search text
+      // "fuzzy" = redblock message is similar to the search text
+    }
+}
+```
 * `/redblocks/projects/{projectId}/redblock` - POST: Create a new redblock in a project
 * `/redblocks/projects/{projectId}/redblocks/{keyNumber}` - GET: Get redblock details by key number
 * `/redblocks/projects/{projectId}/redblocks/{keyNumber}` - PUT: Update redblock message

@@ -5,7 +5,7 @@ create table if not exists `Redblocks.UserAssignments` (
     AssignedTo bigint not null,
     CreatedBy bigint not null,
     CreatedOn datetime default current_timestamp not null,
-    constraint UQ_UserAssignments_RedblockId_UserId unique (RedblockId, UserId),
+    constraint UQ_UserAssignments_RedblockId_UserId unique (RedblockId, AssignedTo),
     constraint FK_UserAssignments_Redblocks foreign key (RedblockId) references `Redblocks.Redblocks`(RedblockId) on delete cascade on update cascade,
     constraint FK_UserAssignments_AssignedTo foreign key (AssignedTo) references `Users.Users`(UserId) on delete cascade,
     constraint FK_UserAssignments_CreatedBy foreign key (CreatedBy) references `Users.Users`(UserId)
