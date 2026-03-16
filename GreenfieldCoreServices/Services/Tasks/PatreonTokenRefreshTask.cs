@@ -66,9 +66,12 @@ public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServic
             await semaphore.WaitAsync(cancellationToken);
             refreshTasks.Add(Task.Run(async () =>
             {
+                using var semScope = scopeFactory.CreateScope();
+                var semPatreonService = semScope.ServiceProvider.GetRequiredService<IPatreonService>();
+                var semPatreonApi = semScope.ServiceProvider.GetRequiredService<IPatreonApi>();
                 try
                 {
-                    if (await RefreshConnection(connection, patreonApi, patreonService, campaignId)) 
+                    if (await RefreshConnection(connection, semPatreonApi, semPatreonService, campaignId)) 
                         Interlocked.Increment(ref totalRefreshed);
                 }
                 finally
