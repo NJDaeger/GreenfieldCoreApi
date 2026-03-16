@@ -37,7 +37,6 @@ public class DiscordTokenRefreshTask(TaskStartSignalService startSignal, IServic
     {
         using var scope = scopeFactory.CreateScope();
         var discordService = scope.ServiceProvider.GetRequiredService<IDiscordService>();
-        var discordApi = scope.ServiceProvider.GetRequiredService<IDiscordApi>();
 
         logger.LogInformation("Starting Discord token refresh task at {Time}", DateTimeOffset.Now);
         var connectionsResult = await discordService.GetAllDiscordConnections();
@@ -56,9 +55,12 @@ public class DiscordTokenRefreshTask(TaskStartSignalService startSignal, IServic
             await semaphore.WaitAsync(cancellationToken);
             refreshTasks.Add(Task.Run(async () =>
             {
+                using var semScope = scopeFactory.CreateScope();
+                var semDiscordService = semScope.ServiceProvider.GetRequiredService<IDiscordService>();
+                var semDiscordApi = semScope.ServiceProvider.GetRequiredService<IDiscordApi>();
                 try
                 {
-                    if (await RefreshConnection(connection, discordApi, discordService)) 
+                    if (await RefreshConnection(connection, semDiscordApi, semDiscordService)) 
                         Interlocked.Increment(ref totalRefreshed);
                 }
                 finally
