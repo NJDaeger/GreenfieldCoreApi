@@ -65,6 +65,7 @@ public static class Startup
         services.AddTransient<IDiscordConnectionRepository, DiscordConnectionRepository>();
         services.AddTransient<ICodeRepository, CodeRepository>();
         services.AddTransient<IApplicationRepository, ApplicationRepository>();
+        services.AddTransient<IRedblockRepository, RedblockRepository>();
     }
     
     internal static void ConfigureScheduledTasks(this IServiceCollection services)
