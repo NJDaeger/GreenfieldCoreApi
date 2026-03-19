@@ -17,11 +17,7 @@ public record RedblockEntity(
     long CreatedBy,
     DateTime CreatedOn,
     long? DeletedBy,
-    DateTime? DeletedOn,
-    long? LatestStatusId,
-    string? LatestStatus,
-    long? LatestStatusCreatedBy,
-    DateTime? LatestStatusCreatedOn);
+    DateTime? DeletedOn);
 
 public record RedblockStatusEntity(
     long StatusId,

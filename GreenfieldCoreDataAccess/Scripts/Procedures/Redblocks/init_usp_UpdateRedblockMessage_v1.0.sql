@@ -2,10 +2,13 @@
 create procedure if not exists `Redblocks.usp_UpdateRedblockMessage`(
     p_ProjectId bigint,
     p_KeyNumber bigint,
-    p_Message nvarchar(1024))
+    p_Message nvarchar(1024),
+    p_UpdatedBy bigint)
 begin
     update `Redblocks.Redblocks` rb
-    set rb.Message = p_Message
+    set rb.Message = p_Message,
+        rb.UpdatedBy = p_UpdatedBy,
+        rb.UpdatedOn = current_timestamp()
     where rb.ProjectId = p_ProjectId
       and rb.KeyNumber = p_KeyNumber
       and rb.DeletedOn is null;

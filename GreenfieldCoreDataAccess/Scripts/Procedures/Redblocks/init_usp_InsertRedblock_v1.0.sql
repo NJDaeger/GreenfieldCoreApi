@@ -64,11 +64,7 @@ begin
                 rb.CreatedBy,
                 rb.CreatedOn,
                 rb.DeletedBy,
-                rb.DeletedOn,
-                cast(null as signed) as LatestStatusId,
-                cast(null as char(32)) as LatestStatus,
-                cast(null as signed) as LatestStatusCreatedBy,
-                cast(null as datetime) as LatestStatusCreatedOn
+                rb.DeletedOn
             from `Redblocks.Redblocks` rb
             where rb.RedblockId = v_RedblockId;
         end if;

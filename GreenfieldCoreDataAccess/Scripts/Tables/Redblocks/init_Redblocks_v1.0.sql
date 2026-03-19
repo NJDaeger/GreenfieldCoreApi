@@ -9,6 +9,8 @@ create table if not exists `Redblocks.Redblocks` (
     Z int not null,
     CreatedBy bigint not null,
     CreatedOn datetime default current_timestamp not null,
+    UpdatedBy bigint null,
+    UpdatedOn datetime null,
     DeletedBy bigint null,
     DeletedOn datetime null,
     constraint UQ_Redblocks_ProjectId_KeyNumber unique (ProjectId, KeyNumber),
@@ -32,4 +34,12 @@ create trigger `Redblocks.trg_UsersBeforeDelete_SetRedblocksDeletedBy`
     update `Redblocks.Redblocks` rb
     set rb.DeletedBy = 1
     where rb.DeletedBy = old.UserId;
+
+drop trigger if exists `Redblocks.trg_UsersBeforeDelete_SetRedblocksUpdatedBy`;
+create trigger `Redblocks.trg_UsersBeforeDelete_SetRedblocksUpdatedBy`
+    before delete on `Users.Users`
+    for each row
+    update `Redblocks.Redblocks` rb
+    set rb.UpdatedBy = 1
+    where rb.UpdatedBy = old.UserId;
 
