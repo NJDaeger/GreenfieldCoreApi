@@ -606,4 +606,162 @@ public static class StoredProcs
             return parms;
         });
     }
+
+    /// <summary>
+    /// Procedures related to redblock management.
+    /// </summary>
+    public static class Redblocks
+    {
+        /// <summary>
+        /// Inserts a new redblock project.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockProjectEntity?, (string projectName, string projectKey)> InsertProject = new("`Redblocks.usp_InsertProject`", (args, parms) =>
+        {
+            parms.Add("p_ProjectName", args.projectName, DbType.String, size: 64);
+            parms.Add("p_ProjectKey", args.projectKey, DbType.String, size: 6);
+            return parms;
+        });
+        
+        /// <summary>
+        /// Updates a redblock project's name.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockProjectEntity?, (long projectId, string projectName)> UpdateProject = new("`Redblocks.usp_UpdateProject`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_ProjectName", args.projectName, DbType.String, size: 64);
+            return parms;
+        });
+
+        /// <summary>
+        /// Selects all redblock projects.
+        /// </summary>
+        public static readonly QueryProcedure<RedblockProjectEntity> SelectProjects = new("`Redblocks.usp_SelectProjects`");
+
+        /// <summary>
+        /// Selects a redblock project by its ID.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockProjectEntity?, long> SelectProjectById = new("`Redblocks.usp_SelectProjectById`", (projectId, parms) =>
+        {
+            parms.Add("p_ProjectId", projectId, DbType.Int64);
+            return parms;
+        });
+
+        /// <summary>
+        /// Inserts a new redblock.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockEntity?, (long projectId, string message, int x, int y, int z, long createdBy)> InsertRedblock = new("`Redblocks.usp_InsertRedblock`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_Message", args.message, DbType.String, size: 1024);
+            parms.Add("p_X", args.x, DbType.Int32);
+            parms.Add("p_Y", args.y, DbType.Int32);
+            parms.Add("p_Z", args.z, DbType.Int32);
+            parms.Add("p_CreatedBy", args.createdBy, DbType.Int64);
+            return parms;
+        });
+
+        /// <summary>
+        /// Selects a redblock by project and key number.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockEntity?, (long projectId, long keyNumber)> SelectRedblockByKey = new("`Redblocks.usp_SelectRedblockByKey`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
+            return parms;
+        });
+
+        /// <summary>
+        /// Selects redblocks in a project with optional filters.
+        /// </summary>
+        public static readonly ParameterizedQueryProcedure<RedblockEntity, (long projectId, string? statusFilter, string? deletionFilter, string? userAssignmentFilter, string? roleAssignmentFilter, string? messageFilter)> SelectRedblocksByProject = new("`Redblocks.usp_SelectRedblocksByProject`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_StatusFilter", args.statusFilter, DbType.String, size: 8192);
+            parms.Add("p_DeletionFilter", args.deletionFilter, DbType.String, size: 8192);
+            parms.Add("p_UserAssignmentFilter", args.userAssignmentFilter, DbType.String, size: 8192);
+            parms.Add("p_RoleAssignmentFilter", args.roleAssignmentFilter, DbType.String, size: 8192);
+            parms.Add("p_MessageFilter", args.messageFilter, DbType.String, size: 2048);
+            return parms;
+        });
+
+        /// <summary>
+        /// Updates a redblock message.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockEntity?, (long projectId, long keyNumber, string message)> UpdateRedblockMessage = new("`Redblocks.usp_UpdateRedblockMessage`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
+            parms.Add("p_Message", args.message, DbType.String, size: 1024);
+            return parms;
+        });
+
+        /// <summary>
+        /// Soft deletes a redblock.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockEntity?, (long projectId, long keyNumber, long deletedBy)> SoftDeleteRedblock = new("`Redblocks.usp_SoftDeleteRedblock`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
+            parms.Add("p_DeletedBy", args.deletedBy, DbType.Int64);
+            return parms;
+        });
+
+        /// <summary>
+        /// Inserts a status for a redblock.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockStatusEntity?, (long projectId, long keyNumber, string status, long createdBy)> InsertStatus = new("`Redblocks.usp_InsertStatus`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
+            parms.Add("p_Status", args.status, DbType.String, size: 32);
+            parms.Add("p_CreatedBy", args.createdBy, DbType.Int64);
+            return parms;
+        });
+
+        /// <summary>
+        /// Inserts a user assignment for a redblock.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockUserAssignmentEntity?, (long projectId, long keyNumber, long assignedTo, long createdBy)> InsertUserAssignment = new("`Redblocks.usp_InsertUserAssignment`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
+            parms.Add("p_AssignedTo", args.assignedTo, DbType.Int64);
+            parms.Add("p_CreatedBy", args.createdBy, DbType.Int64);
+            return parms;
+        });
+
+        /// <summary>
+        /// Deletes a user assignment from a redblock.
+        /// </summary>
+        public static readonly ParameterizedProcedure<(long projectId, long keyNumber, long assignedTo)> DeleteUserAssignment = new("`Redblocks.usp_DeleteUserAssignment`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
+            parms.Add("p_AssignedTo", args.assignedTo, DbType.Int64);
+            return parms;
+        });
+
+        /// <summary>
+        /// Inserts a role assignment for a redblock.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockRoleAssignmentEntity?, (long projectId, long keyNumber, string roleName, long createdBy)> InsertRoleAssignment = new("`Redblocks.usp_InsertRoleAssignment`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
+            parms.Add("p_RoleName", args.roleName, DbType.String, size: 32);
+            parms.Add("p_CreatedBy", args.createdBy, DbType.Int64);
+            return parms;
+        });
+
+        /// <summary>
+        /// Deletes a role assignment from a redblock.
+        /// </summary>
+        public static readonly ParameterizedProcedure<(long projectId, long keyNumber, string roleName)> DeleteRoleAssignment = new("`Redblocks.usp_DeleteRoleAssignment`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
+            parms.Add("p_RoleName", args.roleName, DbType.String, size: 32);
+            return parms;
+        });
+    }
 }

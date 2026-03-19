@@ -72,18 +72,18 @@ The combination of redblockId and projectId is unique, and keyNumber is an auto-
         "matchType": "value" //"or" = any one of, "not" = none of
     },
     "deletionStatus": { //null = show anything regardless of deletion status
-        "users": [123, 456], //[] with an or matchType means show anything deleted by any user, [] with a not matchType means show anything not deleted by any user
-        "matchType": "value" // "or" = redblock deleted by any of these users, "not" = redblock not deleted by any of these users
+        "users": [123, 456], //[] with an and matchType means only return redblocks that are not deleted, [] with an or matchType means return anything regardless of deletion status (same as setting the whole node to null), [] with a not matchType means only return deleted items
+        "matchType": "value" //"and" = redblock deleted by all listed users (if used with multiple users, it will always return 0 items, since items can only be deleted by 1 person), "or" = redblock deleted by any of these users, "not" = redblock not deleted by any of these users
     },
-    "userAssignmentStatus": {
-        "users": [123, 456], // [] with an and match type means show anything not assigned to any user, [] with an or match type means show any redblock regardless of user assignment, [] with a not match type means show anything assigned to any user.
+    "userAssignmentStatus": { //null = show anything regardless of user assignment status
+        "users": [123, 456], // [] with an and match type means only return redblocks with no users assigned, [] with an or match type means show any redblock regardless of user assignment (same as setting the whole node to null), [] with a not match type means only return items that are assigned to someone
         "matchType": "value" // "and" = redblock assigned to all listed users, "or" = redblock has any one of the users assigned to it, "not" = redblock does not have any of the users assigned to it
     },
-    "roleAssignmentStatus": {
-        "roles": ["builder", "architect"], // [] with an and match type means show anything not assigned to any role, [] with an or match type means show any redblock regardless of role assignment, [] with a not match type means show anything assigned to any role.
+    "roleAssignmentStatus": { //null = show anything regardless of role assignment status
+        "roles": ["builder", "architect"], // [] with an and match type means only return redblocks with no roles assigned, [] with an or match type means show any redblock regardless of role assignment (same as setting the whole node to null), [] with a not match type means only return items that are assigned to a role
         "matchType": "value" //"and" = redblock assigned to all listed roles, "or" = redblock has any one of the roles assigned to it, "not" = redblock does not have any of the roles assigned to it
     },
-    "message": {
+    "message": { //null = no text filtering
         "content": "search text",
         "matchType": "value"
       // match types:
@@ -91,7 +91,6 @@ The combination of redblockId and projectId is unique, and keyNumber is an auto-
       // "exact" = redblock message exactly matches the search text
       // "startsWith" = redblock message starts with the search text
       // "endsWith" = redblock message ends with the search text
-      // "regex" = redblock message matches the regex pattern in the search text
       // "fuzzy" = redblock message is similar to the search text
     }
 }
