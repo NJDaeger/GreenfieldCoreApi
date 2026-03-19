@@ -54,6 +54,14 @@ public interface IRedblockService
     Task<Result<Redblock>> GetRedblockByKey(long projectId, long keyNumber);
 
     /// <summary>
+    /// Retrieves all redblocks within a project, optionally filtered by search criteria.
+    /// </summary>
+    /// <param name="projectId">The ID of the project to retrieve redblocks from.</param>
+    /// <param name="searchFilter">Optional search criteria to filter the redblocks by status, deletion status, user assignments, role assignments, or message content.</param>
+    /// <returns></returns>
+    Task<Result<List<Redblock>>> GetRedblocksByProject(long projectId, RedblockSearchRequest? searchFilter);
+    
+    /// <summary>
     /// Adds a status entry to an existing redblock.
     /// </summary>
     /// <param name="projectId">The ID of the project the redblock belongs to.</param>
