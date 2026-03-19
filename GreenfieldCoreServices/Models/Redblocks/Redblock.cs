@@ -13,6 +13,8 @@ public class Redblock : IModelConvertable<RedblockEntity, Redblock>
     public required int Z { get; set; }
     public required long CreatedBy { get; set; }
     public required DateTime CreatedOn { get; set; }
+    public long? UpdatedBy { get; set; }
+    public DateTime? UpdatedOn { get; set; }
     public long? DeletedBy { get; set; }
     public DateTime? DeletedOn { get; set; }
     
