@@ -50,6 +50,13 @@ public interface IRedblockRepository
     Task<Result<RedblockEntity>> InsertRedblock(long projectId, string message, int x, int y, int z, long createdBy);
 
     /// <summary>
+    /// Get a Redblock by its internal Redblock ID.
+    /// </summary>
+    /// <param name="redblockId">The internal Redblock ID to retrieve.</param>
+    /// <returns>Result containing the <see cref="RedblockEntity"/> if found, or a failed Result if no Redblock was found.</returns>
+    Task<Result<RedblockEntity>> SelectRedblockById(long redblockId);
+
+    /// <summary>
     /// Get a Redblock by project ID and Redblock key number.
     /// </summary>
     /// <param name="projectId">The project ID that the Redblock belongs to.</param>
@@ -58,16 +65,42 @@ public interface IRedblockRepository
     Task<Result<RedblockEntity>> SelectRedblockByKey(long projectId, long keyNumber);
 
     /// <summary>
-    /// Get Redblocks for a project using the raw stored procedure filter format.
+    /// Get all Redblocks within a project, optionally filtered by status, deletion, user assignments, role assignments, and/or message content.
     /// </summary>
-    /// <param name="projectId">The project ID to retrieve Redblocks for.</param>
-    /// <param name="statusFilter">Optional status filter in the format <c>[...] :matchType</c>, where the JSON array contains statuses and the match type is interpreted by the stored procedure.</param>
-    /// <param name="deletionFilter">Optional deletion filter in the format <c>[...] :matchType</c>, where the JSON array contains deleting user IDs.</param>
-    /// <param name="userAssignmentFilter">Optional user assignment filter in the format <c>[...] :matchType</c>, where the JSON array contains assigned user IDs.</param>
-    /// <param name="roleAssignmentFilter">Optional role assignment filter in the format <c>[...] :matchType</c>, where the JSON array contains role names.</param>
-    /// <param name="messageFilter">Optional message filter in the format <c>[...] :matchType</c>, where the JSON array contains the message text to search for.</param>
-    /// <returns>Result containing all matching <see cref="RedblockEntity"/> entries for the project.</returns>
-    Task<Result<IEnumerable<RedblockEntity>>> SelectRedblocksByProject(long projectId, string? statusFilter, string? deletionFilter, string? userAssignmentFilter, string? roleAssignmentFilter, string? messageFilter);
+    /// <param name="projectId">The project ID that the Redblocks belong to.</param>
+    /// <param name="statusFilter">Optional filter for Redblock status.</param>
+    /// <param name="statusFilterMatchType">Optional match type for status filter.</param>
+    /// <param name="deletionFilter">Optional filter for Redblock deletion status.</param>
+    /// <param name="deletionFilterMatchType">Optional match type for deletion filter.</param>
+    /// <param name="userAssignmentFilter">Optional filter for user assignments.</param>
+    /// <param name="userAssignmentFilterMatchType">Optional match type for user assignment filter.</param>
+    /// <param name="roleAssignmentFilter">Optional filter for role assignments.</param>
+    /// <param name="roleAssignmentFilterMatchType">Optional match type for role assignment filter.</param>
+    /// <param name="messageFilter">Optional filter for Redblock message content.</param>
+    /// <param name="messageFilterMatchType">Optional match type for message filter.</param>
+    /// <returns>Result containing matching <see cref="RedblockEntity"/> rows.</returns>
+    Task<Result<IEnumerable<RedblockEntity>>> SelectRedblocksByProject(long projectId, string? statusFilter, string? statusFilterMatchType, string? deletionFilter, string? deletionFilterMatchType, string? userAssignmentFilter, string? userAssignmentFilterMatchType, string? roleAssignmentFilter, string? roleAssignmentFilterMatchType, string? messageFilter, string? messageFilterMatchType);
+
+    /// <summary>
+    /// Get all status rows for a Redblock by its internal Redblock ID.
+    /// </summary>
+    /// <param name="redblockId">The internal Redblock ID.</param>
+    /// <returns>Result containing matching <see cref="RedblockStatusEntity"/> rows.</returns>
+    Task<Result<IEnumerable<RedblockStatusEntity>>> SelectRedblockStatuses(long redblockId);
+
+    /// <summary>
+    /// Get all user assignments for a Redblock by its internal Redblock ID.
+    /// </summary>
+    /// <param name="redblockId">The internal Redblock ID.</param>
+    /// <returns>Result containing matching <see cref="RedblockUserAssignmentEntity"/> rows.</returns>
+    Task<Result<IEnumerable<RedblockUserAssignmentEntity>>> SelectRedblockUserAssignments(long redblockId);
+
+    /// <summary>
+    /// Get all role assignments for a Redblock by its internal Redblock ID.
+    /// </summary>
+    /// <param name="redblockId">The internal Redblock ID.</param>
+    /// <returns>Result containing matching <see cref="RedblockRoleAssignmentEntity"/> rows.</returns>
+    Task<Result<IEnumerable<RedblockRoleAssignmentEntity>>> SelectRedblockRoleAssignments(long redblockId);
 
     /// <summary>
     /// Update a Redblock's message.
@@ -75,8 +108,9 @@ public interface IRedblockRepository
     /// <param name="projectId">The project ID that the Redblock belongs to.</param>
     /// <param name="keyNumber">The Redblock key number within the project.</param>
     /// <param name="message">The new message to set.</param>
+    /// <param name="updatedBy"></param>
     /// <returns>Result containing the updated <see cref="RedblockEntity"/>, or a failed Result if no Redblock was found.</returns>
-    Task<Result<RedblockEntity>> UpdateRedblockMessage(long projectId, long keyNumber, string message);
+    Task<Result<RedblockEntity>> UpdateRedblockMessage(long projectId, long keyNumber, string message, long updatedBy);
 
     /// <summary>
     /// Soft delete a Redblock.

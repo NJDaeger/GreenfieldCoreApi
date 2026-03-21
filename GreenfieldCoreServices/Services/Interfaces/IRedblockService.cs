@@ -17,16 +17,22 @@ public interface IRedblockService
     /// <param name="z">The Z coordinate of the redblock.</param>
     /// <param name="message">The message or description associated with the redblock.</param>
     /// <param name="createdBy">The ID of the user creating the redblock.</param>
+    /// <param name="initialStatus"></param>
+    /// <param name="assignedUsers"></param>
+    /// <param name="assignedRoles"></param>
     /// <returns>A <see cref="Result{T}"/> containing the created <see cref="Redblock"/>.</returns>
-    Task<Result<Redblock>> CreateRedblock(long projectId, int x, int y, int z, string message, long createdBy);
+    Task<Result<Redblock>> CreateRedblock(long projectId, int x, int y, int z, string message, long createdBy,
+        string initialStatus,
+        List<long> assignedUsers, List<string> assignedRoles);
 
     /// <summary>
     /// Deletes a redblock identified by its key number within a project.
     /// </summary>
     /// <param name="projectId">The ID of the project the redblock belongs to.</param>
     /// <param name="keyNumber">The key number identifying the redblock within the project.</param>
+    /// <param name="deletedBy"></param>
     /// <returns>A <see cref="Result"/> indicating whether the deletion was successful.</returns>
-    Task<Result> DeleteRedblock(long projectId, long keyNumber);
+    Task<Result> DeleteRedblock(long projectId, long keyNumber, long deletedBy);
 
     /// <summary>
     /// Updates the message of an existing redblock.
@@ -36,7 +42,7 @@ public interface IRedblockService
     /// <param name="newMessage">The new message or description to set on the redblock.</param>
     /// <param name="updatedBy">The ID of the user performing the update.</param>
     /// <returns>A <see cref="Result{T}"/> containing the updated <see cref="Redblock"/>.</returns>
-    Task<Result<Redblock>> UpdateRedblock(long projectId, long keyNumber, string newMessage, long updatedBy);
+    Task<Result> UpdateRedblock(long projectId, long keyNumber, string newMessage, long updatedBy);
 
     /// <summary>
     /// Retrieves a redblock by its unique ID.
@@ -59,7 +65,7 @@ public interface IRedblockService
     /// <param name="projectId">The ID of the project to retrieve redblocks from.</param>
     /// <param name="searchFilter">Optional search criteria to filter the redblocks by status, deletion status, user assignments, role assignments, or message content.</param>
     /// <returns></returns>
-    Task<Result<List<Redblock>>> GetRedblocksByProject(long projectId, RedblockSearchRequest? searchFilter);
+    Task<Result<RedblockSearchResult>> GetRedblocksByProject(long projectId, RedblockSearchRequest searchFilter);
     
     /// <summary>
     /// Adds a status entry to an existing redblock.

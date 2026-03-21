@@ -104,7 +104,26 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
         }
     }
 
-    public async Task<Result<IEnumerable<RedblockEntity>>> SelectRedblocksByProject(long projectId, string? statusFilter, string? deletionFilter, string? userAssignmentFilter, string? roleAssignmentFilter, string? messageFilter)
+    public async Task<Result<RedblockEntity>> SelectRedblockById(long redblockId)
+    {
+        try
+        {
+            var result = await Connection.QuerySingleProcedure(StoredProcs.Redblocks.SelectRedblockById, redblockId, Transaction);
+            return result is null
+                ? Result<RedblockEntity>.Failure("Redblock not found.", HttpStatusCode.NotFound)
+                : Result<RedblockEntity>.Success(result);
+        }
+        catch (DbException ex)
+        {
+            logger.LogDebug("{ErrorMessage}", ex.Message);
+            return Result<RedblockEntity>.Failure($"Failed to select redblock by ID: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
+    public async Task<Result<IEnumerable<RedblockEntity>>> SelectRedblocksByProject(long projectId,
+        string? statusFilter, string? statusFilterMatchType, string? deletionFilter, string? deletionFilterMatchType,
+        string? userAssignmentFilter, string? userAssignmentFilterMatchType, string? roleAssignmentFilter,
+        string? roleAssignmentFilterMatchType, string? messageFilter, string? messageFilterMatchType)
     {
         try
         {
@@ -120,11 +139,53 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
         }
     }
 
-    public async Task<Result<RedblockEntity>> UpdateRedblockMessage(long projectId, long keyNumber, string message)
+    public async Task<Result<IEnumerable<RedblockStatusEntity>>> SelectRedblockStatuses(long redblockId)
     {
         try
         {
-            var result = await Connection.QuerySingleProcedure(StoredProcs.Redblocks.UpdateRedblockMessage, (projectId, keyNumber, message), Transaction);
+            var result = await Connection.QueryProcedure(StoredProcs.Redblocks.SelectRedblockStatuses, redblockId, Transaction);
+            return Result<IEnumerable<RedblockStatusEntity>>.Success(result);
+        }
+        catch (DbException ex)
+        {
+            logger.LogDebug("{ErrorMessage}", ex.Message);
+            return Result<IEnumerable<RedblockStatusEntity>>.Failure($"Failed to select redblock statuses: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
+    public async Task<Result<IEnumerable<RedblockUserAssignmentEntity>>> SelectRedblockUserAssignments(long redblockId)
+    {
+        try
+        {
+            var result = await Connection.QueryProcedure(StoredProcs.Redblocks.SelectRedblockUserAssignments, redblockId, Transaction);
+            return Result<IEnumerable<RedblockUserAssignmentEntity>>.Success(result);
+        }
+        catch (DbException ex)
+        {
+            logger.LogDebug("{ErrorMessage}", ex.Message);
+            return Result<IEnumerable<RedblockUserAssignmentEntity>>.Failure($"Failed to select redblock user assignments: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
+    public async Task<Result<IEnumerable<RedblockRoleAssignmentEntity>>> SelectRedblockRoleAssignments(long redblockId)
+    {
+        try
+        {
+            var result = await Connection.QueryProcedure(StoredProcs.Redblocks.SelectRedblockRoleAssignments, redblockId, Transaction);
+            return Result<IEnumerable<RedblockRoleAssignmentEntity>>.Success(result);
+        }
+        catch (DbException ex)
+        {
+            logger.LogDebug("{ErrorMessage}", ex.Message);
+            return Result<IEnumerable<RedblockRoleAssignmentEntity>>.Failure($"Failed to select redblock role assignments: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
+    public async Task<Result<RedblockEntity>> UpdateRedblockMessage(long projectId, long keyNumber, string message, long updatedBy)
+    {
+        try
+        {
+            var result = await Connection.QuerySingleProcedure(StoredProcs.Redblocks.UpdateRedblockMessage, (projectId, keyNumber, message, updatedBy), Transaction);
             return result is null
                 ? Result<RedblockEntity>.Failure("Redblock not found.", HttpStatusCode.NotFound)
                 : Result<RedblockEntity>.Success(result);

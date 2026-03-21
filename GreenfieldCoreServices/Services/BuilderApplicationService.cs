@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenfieldCoreServices.Services;
 
-public class BuilderApplicationService(IUnitOfWork uow, ILogger<BuilderApplicationService> logger, ICacheService<long, BuilderApplication> buildAppCache) : IBuilderApplicationService
+public class BuilderApplicationService(IUnitOfWork uow, ILogger<IBuilderApplicationService> logger, ICacheService<long, BuilderApplication> buildAppCache) : IBuilderApplicationService
 {
     public async Task<Result<long>> SubmitApplication(long userId,
         int age,

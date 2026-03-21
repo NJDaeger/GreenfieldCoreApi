@@ -6,22 +6,27 @@ create procedure if not exists `Redblocks.usp_SelectRedblocksByProject`(
     -- null 
     -- []:matchType where [] contains a comma separated list of statuses
     p_StatusFilter varchar(8192),
+    p_StatusFilterMatchType varchar(16),
     -- DeletionFilter format:
     -- null
     -- []:matchType where [] contains a comma separated list of userIds
     p_DeletionFilter varchar(8192),
+    p_DeletionFilterMatchType varchar(16),
     -- UserAssignmentFilter format:
     -- null
     -- []:matchType where [] contains a comma separated list of userIds
     p_UserAssignmentFilter varchar(8192),
+    p_UserAssignmentFilterMatchType varchar(16),    
     -- RoleAssignmentFilter format:
     -- null
     -- []:matchType where [] contains a comma separated list of roles
     p_RoleAssignmentFilter varchar(8192),
+    p_RoleAssignmentFilterMatchType varchar(16),    
     -- MessageFilter format:
     -- null
     -- []:matchType where [] contains the message to search for.
-    p_MessageFilter varchar(2048)
+    p_MessageFilter varchar(2048),
+    p_MessageFilterMatchType varchar(16)
     )
 begin
     create temporary table TempRedblockIdList
@@ -29,8 +34,6 @@ begin
         RedblockId bigint not null primary key
     );
     
-    set @StatusFilterSeparator = null;
-    set @StatusFilterMatchType = null;
     create temporary table TempStatusFilterValues
     (
         Status nvarchar(32) not null
