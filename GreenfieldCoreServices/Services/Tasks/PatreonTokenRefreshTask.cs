@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenfieldCoreServices.Services.Tasks;
 
-public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServiceScopeFactory scopeFactory, ILogger<PatreonTokenRefreshTask> logger) : BackgroundService
+public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServiceScopeFactory scopeFactory, ILogger<PatreonTokenRefreshTask> logger) : BackgroundService, ITokenRefreshTrigger
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -35,6 +35,8 @@ public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServic
         
     }
     
+    public Task TriggerAsync(CancellationToken cancellationToken) => RefreshPatreonTokensAsync(cancellationToken);
+
     private async Task RefreshPatreonTokensAsync(CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
