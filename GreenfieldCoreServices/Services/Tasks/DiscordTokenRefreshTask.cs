@@ -87,7 +87,10 @@ public class DiscordTokenRefreshTask(TaskStartSignalService startSignal, IServic
         }
 
         if (expiresIn > TimeSpan.FromDays(2))
-            return false;
+        {
+            logger.LogDebug("RefreshTask {DiscordConnectionId}: Discord token not close to expiry (expires in {ExpiresIn}). Skipping refresh.", connection.DiscordConnectionId, expiresIn);
+            return false;   
+        }
 
         var refreshResult = await discordApi.RefreshDiscordAccessTokenAsync(connection.RefreshToken);
         if (!refreshResult.TryGetDataNonNull(out var tokenResponse))

@@ -19,7 +19,7 @@ public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServic
         {
             try
             {
-                await Task.Delay(TimeSpan.FromDays(1), stoppingToken);
+                await Task.Delay(TimeSpan.FromHours(12), stoppingToken);
                 await RefreshPatreonTokensAsync(stoppingToken);
             }
             catch (TaskCanceledException)
@@ -98,7 +98,10 @@ public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServic
         }
 
         if (expiresIn > TimeSpan.FromDays(2))
-            return false;
+        {
+            logger.LogDebug("RefreshTask {PatreonConnectionId}: Patreon token not close to expiry (expires in {ExpiresIn}). Skipping refresh.", connection.PatreonConnectionId, expiresIn);
+            return false;   
+        }
         
         var refreshResult = await patreonApi.RefreshPatreonAccessTokenAsync(connection.RefreshToken);
         if (!refreshResult.TryGetDataNonNull(out var tokenResponse))
