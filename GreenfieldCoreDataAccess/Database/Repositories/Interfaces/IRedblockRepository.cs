@@ -36,6 +36,13 @@ public interface IRedblockRepository
     /// <param name="projectId">The internal project ID of the project to retrieve.</param>
     /// <returns>Result containing the <see cref="RedblockProjectEntity"/> if found, or a failed Result if no project was found with the given ID.</returns>
     Task<Result<RedblockProjectEntity>> SelectProjectById(long projectId);
+    
+    /// <summary>
+    /// Get a Redblock project by its key.
+    /// </summary>
+    /// <param name="projectKey">The key of the project to retrieve.</param>
+    /// <returns>Result containing the <see cref="RedblockProjectEntity"/> if found, or a failed Result if no project was found with the given key.</returns>
+    Task<Result<RedblockProjectEntity>> SelectProjectByKey(string projectKey);
 
     /// <summary>
     /// Create a new Redblock in a project.

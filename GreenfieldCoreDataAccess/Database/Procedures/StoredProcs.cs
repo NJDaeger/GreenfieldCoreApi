@@ -647,6 +647,15 @@ public static class StoredProcs
         });
 
         /// <summary>
+        /// Selects a redblock project by its key.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockProjectEntity?, string> SelectProjectByKey = new("`Redblocks.usp_SelectProjectByKey`", (projectKey, parms) =>
+        {
+            parms.Add("p_ProjectKey", projectKey, DbType.String, size: 6);
+            return parms;
+        });
+        
+        /// <summary>
         /// Inserts a new redblock.
         /// </summary>
         public static readonly ParameterizedQuerySingleProcedure<RedblockEntity?, (long projectId, string message, int x, int y, int z, long createdBy)> InsertRedblock = new("`Redblocks.usp_InsertRedblock`", (args, parms) =>

@@ -243,48 +243,132 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger) 
         return Result<RedblockStatus>.Success(RedblockStatus.FromModel(statusEntity));
     }
 
-    public Task<Result<RedblockUserAssignment>> AddRedblockUserAssignment(long projectId, long keyNumber, long assignedTo, long createdBy)
+    public async Task<Result<RedblockUserAssignment>> AddRedblockUserAssignment(long projectId, long keyNumber, long assignedTo, long createdBy)
     {
-        throw new NotImplementedException();
+        var redblockRepo = uow.Repository<IRedblockRepository>();
+        uow.BeginTransaction();
+        
+        var insertUserAssignmentResult = await redblockRepo.InsertUserAssignment(projectId, keyNumber, assignedTo, createdBy);
+        if (!insertUserAssignmentResult.TryGetDataNonNull(out var userAssignmentEntity))
+            return Result<RedblockUserAssignment>.Failure(insertUserAssignmentResult.ErrorMessage ?? "Failed to assign user to redblock.", insertUserAssignmentResult.StatusCode);
+        
+        uow.CompleteAndCommit();
+        
+        return Result<RedblockUserAssignment>.Success(RedblockUserAssignment.FromModel(userAssignmentEntity));
     }
 
-    public Task<Result> RemoveRedblockUserAssignment(long projectId, long keyNumber, long assignedTo)
+    public async Task<Result> RemoveRedblockUserAssignment(long projectId, long keyNumber, long assignedTo)
     {
-        throw new NotImplementedException();
+        var redblockRepo = uow.Repository<IRedblockRepository>();
+        uow.BeginTransaction();
+        
+        var deletionResult = await redblockRepo.DeleteUserAssignment(projectId, keyNumber, assignedTo);
+        if (!deletionResult.IsSuccessful)
+            return Result.Failure(deletionResult.ErrorMessage ?? "Failed to remove user assignment from redblock.", deletionResult.StatusCode);
+        
+        uow.CompleteAndCommit();
+        
+        return Result.Success();
     }
 
-    public Task<Result<RedblockRoleAssignment>> AddRedblockRoleAssignment(long projectId, long keyNumber, string roleName, long createdBy)
+    public async Task<Result<RedblockRoleAssignment>> AddRedblockRoleAssignment(long projectId, long keyNumber, string roleName, long createdBy)
     {
-        throw new NotImplementedException();
+        var redblockRepo = uow.Repository<IRedblockRepository>();
+        uow.BeginTransaction();
+        
+        var insertRoleAssignmentResult = await redblockRepo.InsertRoleAssignment(projectId, keyNumber, roleName, createdBy);
+        if (!insertRoleAssignmentResult.TryGetDataNonNull(out var roleAssignmentEntity))
+            return Result<RedblockRoleAssignment>.Failure(insertRoleAssignmentResult.ErrorMessage ?? "Failed to assign role to redblock.", insertRoleAssignmentResult.StatusCode);
+        
+        uow.CompleteAndCommit();
+        
+        return Result<RedblockRoleAssignment>.Success(RedblockRoleAssignment.FromModel(roleAssignmentEntity));
     }
 
-    public Task<Result> RemoveRedblockRoleAssignment(long projectId, long keyNumber, string roleName)
+    public async Task<Result> RemoveRedblockRoleAssignment(long projectId, long keyNumber, string roleName)
     {
-        throw new NotImplementedException();
+        var redblockRepo = uow.Repository<IRedblockRepository>();
+        uow.BeginTransaction();
+        
+        var deletionResult = await redblockRepo.DeleteRoleAssignment(projectId, keyNumber, roleName);
+        if (!deletionResult.IsSuccessful)
+            return Result.Failure(deletionResult.ErrorMessage ?? "Failed to remove role assignment from redblock.", deletionResult.StatusCode);
+        
+        uow.CompleteAndCommit();
+        
+        return Result.Success();
     }
 
-    public Task<Result<List<RedblockProject>>> GetProjects()
+    public async Task<Result<List<RedblockProject>>> GetProjects()
     {
-        throw new NotImplementedException();
+        var redblockRepo = uow.Repository<IRedblockRepository>();
+
+        var projectsResult = await redblockRepo.SelectProjects();
+        if (!projectsResult.TryGetDataNonNull(out var projectEntities))
+            return Result<List<RedblockProject>>.Failure(projectsResult.ErrorMessage ?? "Failed to retrieve redblock projects.", projectsResult.StatusCode);
+
+        var mappedProjects = projectEntities.Select(RedblockProject.FromModel).ToList();
+        return Result<List<RedblockProject>>.Success(mappedProjects);
     }
 
-    public Task<Result<RedblockProject>> CreateProject(string projectName, string projectKey)
+    public async Task<Result<RedblockProject>> CreateProject(string projectName, string projectKey)
     {
-        throw new NotImplementedException();
+        if (projectKey.Length > 6)
+            return Result<RedblockProject>.Failure(projectKey + " is too long.");
+        
+        if (projectKey.Length < 2)
+            return Result<RedblockProject>.Failure(projectKey + " is too short.");
+        
+        if (!projectKey.All(char.IsLetter))
+            return Result<RedblockProject>.Failure(projectKey + " must be only letters.");
+        
+        var redblockRepo = uow.Repository<IRedblockRepository>();
+        uow.BeginTransaction();
+        
+        var insertResult = await redblockRepo.InsertProject(projectName, projectKey);
+        if (!insertResult.TryGetDataNonNull(out var projectEntity))
+            return Result<RedblockProject>.Failure(insertResult.ErrorMessage ?? "Failed to create redblock project.", insertResult.StatusCode);
+        
+        uow.CompleteAndCommit();
+        
+        return Result<RedblockProject>.Success(RedblockProject.FromModel(projectEntity));
     }
 
-    public Task<Result<RedblockProject>> GetProjectById(long projectId)
+    public async Task<Result<RedblockProject>> GetProjectById(long projectId)
     {
-        throw new NotImplementedException();
+        var redblockRepo = uow.Repository<IRedblockRepository>();
+
+        var projectResult = await redblockRepo.SelectProjectById(projectId);
+        if (!projectResult.TryGetDataNonNull(out var projectEntity))
+            return Result<RedblockProject>.Failure(projectResult.ErrorMessage ?? "Failed to retrieve redblock project.", projectResult.StatusCode);
+
+        var mappedProject = RedblockProject.FromModel(projectEntity);
+        return Result<RedblockProject>.Success(mappedProject);
     }
 
-    public Task<Result<RedblockProject>> GetProjectByKey(string projectKey)
+    public async Task<Result<RedblockProject>> GetProjectByKey(string projectKey)
     {
-        throw new NotImplementedException();
+        var redblockRepo = uow.Repository<IRedblockRepository>();
+
+        var projectResult = await redblockRepo.SelectProjectByKey(projectKey);
+        if (!projectResult.TryGetDataNonNull(out var projectEntity))
+            return Result<RedblockProject>.Failure(projectResult.ErrorMessage ?? "Failed to retrieve redblock project.", projectResult.StatusCode);
+
+        var mappedProject = RedblockProject.FromModel(projectEntity);
+        return Result<RedblockProject>.Success(mappedProject);
     }
 
-    public Task<Result<RedblockProject>> UpdateProject(long projectId, string projectName)
+    public async Task<Result<RedblockProject>> UpdateProject(long projectId, string projectName)
     {
-        throw new NotImplementedException();
+        var redblockRepo = uow.Repository<IRedblockRepository>();
+        uow.BeginTransaction();
+        
+        var updateResult = await redblockRepo.UpdateProject(projectId, projectName);
+        if (!updateResult.TryGetDataNonNull(out var projectEntity))
+            return Result<RedblockProject>.Failure(updateResult.ErrorMessage ?? "Failed to update redblock project.", updateResult.StatusCode);
+        
+        uow.CompleteAndCommit();
+        
+        return Result<RedblockProject>.Success(RedblockProject.FromModel(projectEntity));
     }
 }

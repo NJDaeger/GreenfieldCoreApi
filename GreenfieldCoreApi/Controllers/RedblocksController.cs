@@ -1,0 +1,296 @@
+using Asp.Versioning;
+using GreenfieldCoreApi.ApiModels;
+using GreenfieldCoreServices.Models.Redblocks;
+using GreenfieldCoreServices.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace GreenfieldCoreApi.Controllers;
+
+[ApiController]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
+public class RedblocksController(IRedblockService redblockService) : ControllerBase
+{
+
+    #region Project Routes
+
+    /// <summary>
+    /// Retrieves a list of all redblock projects.
+    /// </summary>
+    /// <returns></returns>
+    [HttpGet("projects")]
+    [Authorize(Roles = "Redblocks.Read,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces(typeof(List<RedblockProject>))]
+    public async Task<IActionResult> GetProjects()
+    {
+        var projectsResult = await redblockService.GetProjects();
+        return projectsResult.IsSuccessful
+            ? Ok(projectsResult.GetNonNullOrThrow())
+            : Problem(statusCode: projectsResult.GetStatusCodeInt(), detail: projectsResult.ErrorMessage);
+    }
+    
+    /// <summary>
+    /// Creates a new redblock project with the specified name and key.
+    /// </summary>
+    /// <param name="request">The request containing the project name and key.</param>
+    /// <returns>The created redblock project.</returns>
+    [HttpPost("projects")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Produces(typeof(RedblockProject))]
+    public async Task<IActionResult> CreateProject([FromBody] CreateProjectRequest request)
+    {
+        var projectResult = await redblockService.CreateProject(request.ProjectName, request.ProjectKey);
+        if (!projectResult.IsSuccessful)
+            return Problem(statusCode: projectResult.GetStatusCodeInt(), detail: projectResult.ErrorMessage);
+
+        var createdProject = projectResult.GetNonNullOrThrow();
+        return CreatedAtAction(nameof(GetProjectByKey),
+            new { version = HttpContext.GetRequestedApiVersion()?.ToString(), projectKey = createdProject.ProjectKey },
+            createdProject);
+    }
+    
+    /// <summary>
+    /// Retrieves a redblock project by its unique Key
+    /// </summary>
+    /// <param name="projectKey">The unique Key of the redblock project.</param>
+    /// <returns>The redblock project with the specified ID.</returns>
+    [HttpGet("projects/{projectKey:regex(\\D+)}")]
+    [Authorize(Roles = "Redblocks.Read,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces(typeof(RedblockProject))]
+    public async Task<IActionResult> GetProjectByKey([FromRoute] string projectKey)
+    {
+        var projectResult = await redblockService.GetProjectByKey(projectKey);
+        return projectResult.IsSuccessful
+            ? Ok(projectResult.GetNonNullOrThrow())
+            : Problem(statusCode: projectResult.GetStatusCodeInt(), detail: projectResult.ErrorMessage);
+    }
+
+    /// <summary>
+    /// Updates the name of an existing redblock project.
+    /// </summary>
+    /// <param name="projectKey">The unique Key of the redblock project to update.</param>
+    /// <param name="request">The request containing the new project name.</param>
+    /// <returns>The updated redblock project.</returns>
+    [HttpPut("projects/{projectKey:regex(\\D+)}")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces(typeof(RedblockProject))]
+    public async Task<IActionResult> UpdateProject([FromRoute] string projectKey, [FromBody] UpdateProjectRequest request)
+    {
+        var projectResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectResult.GetStatusCodeInt(), detail: projectResult.ErrorMessage);
+        
+        var updateResult = await redblockService.UpdateProject(project.ProjectId, request.ProjectName);
+        return updateResult.IsSuccessful
+            ? Ok(updateResult.GetNonNullOrThrow())
+            : Problem(statusCode: updateResult.GetStatusCodeInt(), detail: updateResult.ErrorMessage);
+    }
+    
+    #endregion
+
+    #region Redblock Routes
+
+    /// <summary>
+    /// Retrieves a list of redblocks for a specific project, optionally filtered by search criteria.
+    /// </summary>
+    /// <param name="projectKey">The unique Key of the redblock project.</param>
+    /// <param name="searchFilter">Optional search criteria to filter the redblocks.</param>
+    /// <returns>A list of redblocks matching the specified criteria.</returns>
+    [HttpGet("projects/{projectKey:regex(\\D+)}/search")]
+    [Authorize(Roles = "Redblocks.Read,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Produces(typeof(RedblockSearchResult))]
+    public async Task<IActionResult> GetRedblocksByProject([FromRoute] string projectKey, [FromBody] RedblockSearchRequest? searchFilter = null)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        
+        var filter = searchFilter ?? new RedblockSearchRequest();
+        var redblocksResult = await redblockService.GetRedblocksByProject(project.ProjectId, filter);
+        return redblocksResult.IsSuccessful
+            ? Ok(redblocksResult.GetNonNullOrThrow())
+            : Problem(statusCode: redblocksResult.GetStatusCodeInt(), detail: redblocksResult.ErrorMessage);
+    }
+
+    [HttpPost("projects/{projectKey:regex(\\D+)}/redblock")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Produces(typeof(Redblock))]
+    public async Task<IActionResult> CreateRedblock([FromRoute] string projectKey, [FromBody] CreateRedblockRequest request)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        
+        var redblockResult = await redblockService.CreateRedblock(
+            project.ProjectId,
+            request.X,
+            request.Y,
+            request.Z,
+            request.Message,
+            request.CreatedBy,
+            request.InitialStatus,
+            request.AssignedUsers,
+            request.AssignedRoles);
+
+        if (!redblockResult.IsSuccessful)
+            return Problem(statusCode: redblockResult.GetStatusCodeInt(), detail: redblockResult.ErrorMessage);
+
+        var createdRedblock = redblockResult.GetNonNullOrThrow();
+        return CreatedAtAction(nameof(GetRedblockByKey),
+            new
+            {
+                version = HttpContext.GetRequestedApiVersion()?.ToString(),
+                projectKey = project.ProjectKey,
+                redblockKey = createdRedblock.KeyNumber
+            },
+            createdRedblock);
+    }
+    
+    [HttpGet("projects/{projectKey:regex(\\D+)}/{redblockKey:long}")]
+    [Authorize(Roles = "Redblocks.Read,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces(typeof(Redblock))]
+    public async Task<IActionResult> GetRedblockByKey([FromRoute] string projectKey, [FromRoute] long redblockKey)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        
+        var redblockResult = await redblockService.GetRedblockByKey(project.ProjectId, redblockKey);
+        return redblockResult.IsSuccessful
+            ? Ok(redblockResult.GetNonNullOrThrow())
+            : Problem(statusCode: redblockResult.GetStatusCodeInt(), detail: redblockResult.ErrorMessage);
+    }
+    
+    [HttpPut("projects/{projectKey:regex(\\D+)}/{redblockKey:long}")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateRedblock([FromRoute] string projectKey, [FromRoute] long redblockKey, [FromBody] UpdateRedblockRequest request)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        
+        var updateResult = await redblockService.UpdateRedblock(project.ProjectId, redblockKey, request.Message, request.UpdatedBy);
+        return updateResult.IsSuccessful
+            ? Ok()
+            : Problem(statusCode: updateResult.GetStatusCodeInt(), detail: updateResult.ErrorMessage);
+    }
+    
+    #endregion
+
+    [HttpPost("projects/{projectKey:regex(\\D+)}/{keyNumber:long}/status")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Produces(typeof(RedblockStatus))]
+    public async Task<IActionResult> AddRedblockStatus([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromBody] AddStatusRequest request)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+
+        var statusResult = await redblockService.AddRedblockStatus(project.ProjectId, keyNumber, request.Status, request.CreatedBy);
+        return statusResult.IsSuccessful
+            ? Ok(statusResult.GetNonNullOrThrow())
+            : Problem(statusCode: statusResult.GetStatusCodeInt(), detail: statusResult.ErrorMessage);
+    }
+
+    [HttpPost("projects/{projectKey:regex(\\D+)}/{keyNumber:long}/users")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Produces(typeof(RedblockUserAssignment))]
+    public async Task<IActionResult> AddRedblockUserAssignment([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromBody] AssignUserRequest request)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+
+        var userAssignmentResult = await redblockService.AddRedblockUserAssignment(project.ProjectId, keyNumber, request.UserId, request.CreatedBy);
+        return userAssignmentResult.IsSuccessful
+            ? Ok(userAssignmentResult.GetNonNullOrThrow())
+            : Problem(statusCode: userAssignmentResult.GetStatusCodeInt(), detail: userAssignmentResult.ErrorMessage);
+    }
+
+    [HttpPost("projects/{projectKey:regex(\\D+)}/{keyNumber:long}/roles")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Produces(typeof(RedblockRoleAssignment))]
+    public async Task<IActionResult> AddRedblockRoleAssignment([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromBody] AssignRoleRequest request)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+
+        var roleAssignmentResult = await redblockService.AddRedblockRoleAssignment(project.ProjectId, keyNumber, request.RoleName, request.CreatedBy);
+        return roleAssignmentResult.IsSuccessful
+            ? Ok(roleAssignmentResult.GetNonNullOrThrow())
+            : Problem(statusCode: roleAssignmentResult.GetStatusCodeInt(), detail: roleAssignmentResult.ErrorMessage);
+    }
+
+    [HttpDelete("projects/{projectKey:regex(\\D+)}/{keyNumber:long}")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> DeleteRedblock([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromBody] DeleteRedblockRequest request)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+    
+        var deleteResult = await redblockService.DeleteRedblock(project.ProjectId, keyNumber, request.DeletedBy);
+        return deleteResult.IsSuccessful
+            ? Ok()
+            : Problem(statusCode: deleteResult.GetStatusCodeInt(), detail: deleteResult.ErrorMessage);
+    }
+
+    [HttpDelete("projects/{projectKey:regex(\\D+)}/{keyNumber:long}/users/{userId:long}")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RemoveRedblockUserAssignment([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromRoute] long userId)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+    
+        var removeResult = await redblockService.RemoveRedblockUserAssignment(project.ProjectId, keyNumber, userId);
+        return removeResult.IsSuccessful
+            ? Ok()
+            : Problem(statusCode: removeResult.GetStatusCodeInt(), detail: removeResult.ErrorMessage);
+    }
+
+    [HttpDelete("projects/{projectKey:regex(\\D+)}/{keyNumber:long}/roles/{roleName}")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RemoveRedblockRoleAssignment([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromRoute] string roleName)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+    
+        var removeResult = await redblockService.RemoveRedblockRoleAssignment(project.ProjectId, keyNumber, roleName);
+        return removeResult.IsSuccessful
+            ? Ok()
+            : Problem(statusCode: removeResult.GetStatusCodeInt(), detail: removeResult.ErrorMessage);
+    }
+}

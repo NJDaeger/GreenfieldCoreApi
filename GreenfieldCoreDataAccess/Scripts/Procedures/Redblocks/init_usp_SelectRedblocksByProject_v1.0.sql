@@ -1,5 +1,4 @@
 -- DependsOn: ScriptHistory, Projects, Redblocks, Statuses, UserAssignments, RoleAssignments
-delimiter $$
 create procedure if not exists `Redblocks.usp_SelectRedblocksByProject`(
     p_ProjectId bigint,
     -- StatusFilter format: 
@@ -89,6 +88,5 @@ begin
         end if;
     end if;
     
-end $$
-delimiter ;
+end;
 

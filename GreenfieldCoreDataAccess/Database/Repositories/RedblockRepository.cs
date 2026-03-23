@@ -72,6 +72,22 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
         }
     }
 
+    public async Task<Result<RedblockProjectEntity>> SelectProjectByKey(string projectKey)
+    {
+        try
+        {
+            var result = await Connection.QuerySingleProcedure(StoredProcs.Redblocks.SelectProjectByKey, projectKey, Transaction);
+            return result is null
+                ? Result<RedblockProjectEntity>.Failure("Redblock project not found.", HttpStatusCode.NotFound)
+                : Result<RedblockProjectEntity>.Success(result);
+        }
+        catch (DbException ex)
+        {
+            logger.LogDebug("{ErrorMessage}", ex.Message);
+            return Result<RedblockProjectEntity>.Failure($"Failed to select redblock project: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
     public async Task<Result<RedblockEntity>> InsertRedblock(long projectId, string message, int x, int y, int z, long createdBy)
     {
         try
