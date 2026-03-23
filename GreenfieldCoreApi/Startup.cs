@@ -88,6 +88,7 @@ public static class Startup
         services.AddTransient<IClientAuthService, ClientAuthService>();
         services.AddTransient<ICodeService, CodeService>();
         services.AddTransient<IBuilderApplicationService, BuilderApplicationService>();
+        services.AddTransient<IRedblockService, RedblockService>();
         services.AddHttpClient<IPatreonApi, PatreonApi>(client => { client.BaseAddress = new Uri("https://www.patreon.com/api/oauth2/"); });
         services.AddHttpClient<IDiscordApi, DiscordApi>(client => { client.BaseAddress = new Uri("https://discord.com"); });
         services.AddHttpClient<IGitHubApi, GitHubApi>(client => { client.BaseAddress = new Uri("https://api.github.com"); });
