@@ -70,8 +70,13 @@ public static class Startup
     
     internal static void ConfigureScheduledTasks(this IServiceCollection services)
     {
-        services.AddHostedService<PatreonTokenRefreshTask>();
-        services.AddHostedService<DiscordTokenRefreshTask>();
+        services.AddSingleton<PatreonTokenRefreshTask>();
+        services.AddHostedService(sp => sp.GetRequiredService<PatreonTokenRefreshTask>());
+        services.AddKeyedSingleton<ITokenRefreshTrigger>("patreon", (sp, _) => sp.GetRequiredService<PatreonTokenRefreshTask>());
+
+        services.AddSingleton<DiscordTokenRefreshTask>();
+        services.AddHostedService(sp => sp.GetRequiredService<DiscordTokenRefreshTask>());
+        services.AddKeyedSingleton<ITokenRefreshTrigger>("discord", (sp, _) => sp.GetRequiredService<DiscordTokenRefreshTask>());
     }
     
     internal static void ConfigureServices(this IServiceCollection services)
@@ -124,6 +129,7 @@ public static class Startup
     {
         services.AddHostedService<CommandProcessService>();
         services.AddKeyedTransient<ICommand, ClientCommand>("client");
+        services.AddKeyedTransient<ICommand, TasksCommand>("tasks");
     }
     
     internal static void ConfigureAuthentication(this IServiceCollection services, ConfigurationManager configurationManager)

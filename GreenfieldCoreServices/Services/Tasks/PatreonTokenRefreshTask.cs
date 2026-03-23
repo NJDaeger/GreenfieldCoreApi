@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenfieldCoreServices.Services.Tasks;
 
-public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServiceScopeFactory scopeFactory, ILogger<PatreonTokenRefreshTask> logger) : BackgroundService
+public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServiceScopeFactory scopeFactory, ILogger<PatreonTokenRefreshTask> logger) : BackgroundService, ITokenRefreshTrigger
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -19,7 +19,7 @@ public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServic
         {
             try
             {
-                await Task.Delay(TimeSpan.FromDays(1), stoppingToken);
+                await Task.Delay(TimeSpan.FromHours(12), stoppingToken);
                 await RefreshPatreonTokensAsync(stoppingToken);
             }
             catch (TaskCanceledException)
@@ -35,6 +35,8 @@ public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServic
         
     }
     
+    public Task TriggerAsync(CancellationToken cancellationToken) => RefreshPatreonTokensAsync(cancellationToken);
+
     private async Task RefreshPatreonTokensAsync(CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
@@ -66,9 +68,12 @@ public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServic
             await semaphore.WaitAsync(cancellationToken);
             refreshTasks.Add(Task.Run(async () =>
             {
+                using var semScope = scopeFactory.CreateScope();
+                var semPatreonService = semScope.ServiceProvider.GetRequiredService<IPatreonService>();
+                var semPatreonApi = semScope.ServiceProvider.GetRequiredService<IPatreonApi>();
                 try
                 {
-                    if (await RefreshConnection(connection, patreonApi, patreonService, campaignId)) 
+                    if (await RefreshConnection(connection, semPatreonApi, semPatreonService, campaignId)) 
                         Interlocked.Increment(ref totalRefreshed);
                 }
                 finally
@@ -93,7 +98,10 @@ public class PatreonTokenRefreshTask(TaskStartSignalService startSignal, IServic
         }
 
         if (expiresIn > TimeSpan.FromDays(2))
-            return false;
+        {
+            logger.LogDebug("RefreshTask {PatreonConnectionId}: Patreon token not close to expiry (expires in {ExpiresIn}). Skipping refresh.", connection.PatreonConnectionId, expiresIn);
+            return false;   
+        }
         
         var refreshResult = await patreonApi.RefreshPatreonAccessTokenAsync(connection.RefreshToken);
         if (!refreshResult.TryGetDataNonNull(out var tokenResponse))

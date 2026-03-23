@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenfieldCoreServices.Services.Tasks;
 
-public class DiscordTokenRefreshTask(TaskStartSignalService startSignal, IServiceScopeFactory scopeFactory, ILogger<DiscordTokenRefreshTask> logger) : BackgroundService
+public class DiscordTokenRefreshTask(TaskStartSignalService startSignal, IServiceScopeFactory scopeFactory, ILogger<DiscordTokenRefreshTask> logger) : BackgroundService, ITokenRefreshTrigger
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -19,7 +19,7 @@ public class DiscordTokenRefreshTask(TaskStartSignalService startSignal, IServic
         {
             try
             {
-                await Task.Delay(TimeSpan.FromDays(1), stoppingToken);
+                await Task.Delay(TimeSpan.FromHours(12), stoppingToken);
                 await RefreshDiscordTokensAsync(stoppingToken);
             }
             catch (TaskCanceledException)
@@ -33,11 +33,12 @@ public class DiscordTokenRefreshTask(TaskStartSignalService startSignal, IServic
         }
     }
 
+    public Task TriggerAsync(CancellationToken cancellationToken) => RefreshDiscordTokensAsync(cancellationToken);
+
     private async Task RefreshDiscordTokensAsync(CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
         var discordService = scope.ServiceProvider.GetRequiredService<IDiscordService>();
-        var discordApi = scope.ServiceProvider.GetRequiredService<IDiscordApi>();
 
         logger.LogInformation("Starting Discord token refresh task at {Time}", DateTimeOffset.Now);
         var connectionsResult = await discordService.GetAllDiscordConnections();
@@ -56,9 +57,12 @@ public class DiscordTokenRefreshTask(TaskStartSignalService startSignal, IServic
             await semaphore.WaitAsync(cancellationToken);
             refreshTasks.Add(Task.Run(async () =>
             {
+                using var semScope = scopeFactory.CreateScope();
+                var semDiscordService = semScope.ServiceProvider.GetRequiredService<IDiscordService>();
+                var semDiscordApi = semScope.ServiceProvider.GetRequiredService<IDiscordApi>();
                 try
                 {
-                    if (await RefreshConnection(connection, discordApi, discordService)) 
+                    if (await RefreshConnection(connection, semDiscordApi, semDiscordService)) 
                         Interlocked.Increment(ref totalRefreshed);
                 }
                 finally
@@ -83,7 +87,10 @@ public class DiscordTokenRefreshTask(TaskStartSignalService startSignal, IServic
         }
 
         if (expiresIn > TimeSpan.FromDays(2))
-            return false;
+        {
+            logger.LogDebug("RefreshTask {DiscordConnectionId}: Discord token not close to expiry (expires in {ExpiresIn}). Skipping refresh.", connection.DiscordConnectionId, expiresIn);
+            return false;   
+        }
 
         var refreshResult = await discordApi.RefreshDiscordAccessTokenAsync(connection.RefreshToken);
         if (!refreshResult.TryGetDataNonNull(out var tokenResponse))
