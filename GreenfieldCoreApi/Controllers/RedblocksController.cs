@@ -37,7 +37,7 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// </summary>
     /// <param name="request">The request containing the project name and key.</param>
     /// <returns>The created redblock project.</returns>
-    [HttpPost("projects")]
+    [HttpPost("project")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -59,7 +59,7 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// </summary>
     /// <param name="projectKey">The unique Key of the redblock project.</param>
     /// <returns>The redblock project with the specified ID.</returns>
-    [HttpGet("projects/{projectKey:regex(\\D+)}")]
+    [HttpGet("{projectKey:regex(\\D+)}")]
     [Authorize(Roles = "Redblocks.Read,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -78,7 +78,7 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="projectKey">The unique Key of the redblock project to update.</param>
     /// <param name="request">The request containing the new project name.</param>
     /// <returns>The updated redblock project.</returns>
-    [HttpPut("projects/{projectKey:regex(\\D+)}")]
+    [HttpPut("{projectKey:regex(\\D+)}")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -106,7 +106,7 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="projectKey">The unique Key of the redblock project.</param>
     /// <param name="searchFilter">Optional search criteria to filter the redblocks.</param>
     /// <returns>A list of redblocks matching the specified criteria.</returns>
-    [HttpGet("projects/{projectKey:regex(\\D+)}/search")]
+    [HttpGet("{projectKey:regex(\\D+)}/search")]
     [Authorize(Roles = "Redblocks.Read,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -124,7 +124,13 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
             : Problem(statusCode: redblocksResult.GetStatusCodeInt(), detail: redblocksResult.ErrorMessage);
     }
 
-    [HttpPost("projects/{projectKey:regex(\\D+)}/redblock")]
+    /// <summary>
+    /// Create a redblock
+    /// </summary>
+    /// <param name="projectKey"></param>
+    /// <param name="request"></param>
+    /// <returns></returns>
+    [HttpPost("{projectKey:regex(\\D+)}/redblock")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -160,7 +166,13 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
             createdRedblock);
     }
     
-    [HttpGet("projects/{projectKey:regex(\\D+)}/{redblockKey:long}")]
+    /// <summary>
+    /// Retrieves a redblock by its unique Key within a specific project.
+    /// </summary>
+    /// <param name="projectKey">The key of the project.</param>
+    /// <param name="redblockKey">The unique key of the redblock.</param>
+    /// <returns>The redblock if found.</returns>
+    [HttpGet("{projectKey:regex(\\D+)}/{redblockKey:long}")]
     [Authorize(Roles = "Redblocks.Read,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -177,7 +189,14 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
             : Problem(statusCode: redblockResult.GetStatusCodeInt(), detail: redblockResult.ErrorMessage);
     }
     
-    [HttpPut("projects/{projectKey:regex(\\D+)}/{redblockKey:long}")]
+    /// <summary>
+    /// Updates the message of an existing redblock identified by its unique Key within a specific project.
+    /// </summary>
+    /// <param name="projectKey">The key of the project.</param>
+    /// <param name="redblockKey">The unique key of the redblock.</param>
+    /// <param name="request">The request containing the updated message.</param>
+    /// <returns>The result of the update operation.</returns>
+    [HttpPut("{projectKey:regex(\\D+)}/{redblockKey:long}")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -193,9 +212,14 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
             : Problem(statusCode: updateResult.GetStatusCodeInt(), detail: updateResult.ErrorMessage);
     }
     
-    #endregion
-
-    [HttpPost("projects/{projectKey:regex(\\D+)}/{keyNumber:long}/status")]
+    /// <summary>
+    /// Adds a new status entry to the history of a specific redblock identified by its unique Key within a specific project.
+    /// </summary>
+    /// <param name="projectKey">The key of the project.</param>
+    /// <param name="keyNumber">The unique key of the redblock.</param>
+    /// <param name="request">The request containing the status information.</param>
+    /// <returns>The result of the add operation.</returns>
+    [HttpPost("{projectKey:regex(\\D+)}/{keyNumber:long}/status")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -212,7 +236,14 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
             : Problem(statusCode: statusResult.GetStatusCodeInt(), detail: statusResult.ErrorMessage);
     }
 
-    [HttpPost("projects/{projectKey:regex(\\D+)}/{keyNumber:long}/users")]
+    /// <summary>
+    /// Assigns a user to a specific redblock identified by its unique Key within a specific project, granting them access to the redblock.
+    /// </summary>
+    /// <param name="projectKey">The key of the project.</param>
+    /// <param name="keyNumber">The unique key of the redblock.</param>
+    /// <param name="request">The request containing the user assignment information.</param>
+    /// <returns>The result of the add operation.</returns>
+    [HttpPost("{projectKey:regex(\\D+)}/{keyNumber:long}/users")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -229,7 +260,14 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
             : Problem(statusCode: userAssignmentResult.GetStatusCodeInt(), detail: userAssignmentResult.ErrorMessage);
     }
 
-    [HttpPost("projects/{projectKey:regex(\\D+)}/{keyNumber:long}/roles")]
+    /// <summary>
+    /// Assigns a role to a specific redblock identified by its unique Key within a specific project, granting access to all users in that role.
+    /// </summary>
+    /// <param name="projectKey">The key of the project.</param>
+    /// <param name="keyNumber">The unique key of the redblock.</param>
+    /// <param name="request">The request containing the role assignment information.</param>
+    /// <returns>The result of the add operation.</returns>
+    [HttpPost("{projectKey:regex(\\D+)}/{keyNumber:long}/roles")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -246,7 +284,14 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
             : Problem(statusCode: roleAssignmentResult.GetStatusCodeInt(), detail: roleAssignmentResult.ErrorMessage);
     }
 
-    [HttpDelete("projects/{projectKey:regex(\\D+)}/{keyNumber:long}")]
+    /// <summary>
+    /// Deletes a specific redblock identified by its unique Key within a specific project, removing it from the system along with all associated statuses and assignments.
+    /// </summary>
+    /// <param name="projectKey"></param>
+    /// <param name="keyNumber"></param>
+    /// <param name="request"></param>
+    /// <returns></returns>
+    [HttpDelete("{projectKey:regex(\\D+)}/{keyNumber:long}")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -262,7 +307,14 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
             : Problem(statusCode: deleteResult.GetStatusCodeInt(), detail: deleteResult.ErrorMessage);
     }
 
-    [HttpDelete("projects/{projectKey:regex(\\D+)}/{keyNumber:long}/users/{userId:long}")]
+    /// <summary>
+    /// Removes a user assignment from a specific redblock identified by its unique Key within a specific project, revoking their access to the redblock.
+    /// </summary>
+    /// <param name="projectKey">The key of the project.</param>
+    /// <param name="keyNumber">The unique key of the redblock.</param>
+    /// <param name="userId">The ID of the user to remove from the redblock.</param>
+    /// <returns>The result of the remove operation.</returns>
+    [HttpDelete("{projectKey:regex(\\D+)}/{keyNumber:long}/users/{userId:long}")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -278,7 +330,14 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
             : Problem(statusCode: removeResult.GetStatusCodeInt(), detail: removeResult.ErrorMessage);
     }
 
-    [HttpDelete("projects/{projectKey:regex(\\D+)}/{keyNumber:long}/roles/{roleName}")]
+    /// <summary>
+    /// Removes a role assignment from a specific redblock identified by its unique Key within a specific project, revoking access for all users in that role to the redblock.
+    /// </summary>
+    /// <param name="projectKey">The key of the project.</param>
+    /// <param name="keyNumber">The unique key of the redblock.</param>
+    /// <param name="roleName">The name of the role to remove from the redblock.</param>
+    /// <returns>The result of the remove operation.</returns>
+    [HttpDelete("{projectKey:regex(\\D+)}/{keyNumber:long}/roles/{roleName}")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -293,4 +352,6 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
             ? Ok()
             : Problem(statusCode: removeResult.GetStatusCodeInt(), detail: removeResult.ErrorMessage);
     }
+    
+    #endregion
 }
