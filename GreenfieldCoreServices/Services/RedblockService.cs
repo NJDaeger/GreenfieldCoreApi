@@ -10,6 +10,12 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger) 
 {
     public async Task<Result<Redblock>> CreateRedblock(long projectId, int x, int y, int z, string message, long createdBy, string initialStatus, List<long> assignedUsers, List<string> assignedRoles)
     {
+        if (string.IsNullOrWhiteSpace(initialStatus))
+            return Result<Redblock>.Failure("Initial status cannot be empty.");
+        
+        if (string.IsNullOrWhiteSpace(message))
+            return Result<Redblock>.Failure("Message cannot be empty.");
+        
         var redblockRepo = uow.Repository<IRedblockRepository>();
         uow.BeginTransaction();
 
@@ -141,91 +147,77 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger) 
     public async Task<Result<RedblockSearchResult>> GetRedblocksByProject(long projectId, RedblockSearchRequest searchFilter)
     {
         var redblockRepo = uow.Repository<IRedblockRepository>();
-        
-        //the statuses should be formatted like ["status1","status2"]
-        var statusFilter = searchFilter.StatusFilter != null
-            ? $"[{searchFilter.StatusFilter.Statuses.Select(s => $"\"{s}\"").Aggregate((a, b) => $"{a},{b}")}]"
+
+        // Validate and clamp page size
+        var pageSize = Math.Max(1, Math.Min(searchFilter.PageSize, 500));
+
+        // Build JSON filter strings (only if filter is provided and has items)
+        var statusFilter = searchFilter.StatusFilter?.Statuses.Count > 0
+            ? $"[{string.Join(",", searchFilter.StatusFilter.Statuses.Select(s => $"\"{s}\""))}]"
             : null;
         var statusFilterMatchType = statusFilter == null ? null : searchFilter.StatusFilter!.MatchType;
-        
-        var deletionFilter = searchFilter.DeletionFilter != null
-            ? $"[{searchFilter.DeletionFilter.Users.Select(u => u.ToString()).Aggregate((a, b) => $"{a},{b}")}]"
+
+        var deletionFilter = searchFilter.DeletionFilter?.Users.Count > 0
+            ? $"[{string.Join(",", searchFilter.DeletionFilter.Users)}]"
             : null;
         var deletionFilterMatchType = deletionFilter == null ? null : searchFilter.DeletionFilter!.MatchType;
-        
-        var userAssignmentFilter = searchFilter.UserAssignmentFilter != null
-            ? $"[{searchFilter.UserAssignmentFilter.Users.Select(u => u.ToString()).Aggregate((a, b) => $"{a},{b}")}]"
+
+        var userAssignmentFilter = searchFilter.UserAssignmentFilter?.Users.Count > 0
+            ? $"[{string.Join(",", searchFilter.UserAssignmentFilter.Users)}]"
             : null;
         var userAssignmentFilterMatchType = userAssignmentFilter == null ? null : searchFilter.UserAssignmentFilter!.MatchType;
-        
-        var roleAssignmentFilter = searchFilter.RoleAssignmentFilter != null
-            ? $"[{searchFilter.RoleAssignmentFilter.Roles.Select(r => $"\"{r}\"").Aggregate((a, b) => $"{a},{b}")}]"
+
+        var roleAssignmentFilter = searchFilter.RoleAssignmentFilter?.Roles.Count > 0
+            ? $"[{string.Join(",", searchFilter.RoleAssignmentFilter.Roles.Select(r => $"\"{r}\""))}]"
             : null;
         var roleAssignmentFilterMatchType = roleAssignmentFilter == null ? null : searchFilter.RoleAssignmentFilter!.MatchType;
 
-        var messageFilter = searchFilter.MessageFilter != null
-            ? searchFilter.MessageFilter!.Content
-            : null;
+        var messageFilter = searchFilter.MessageFilter?.Content;
         var messageFilterMatchType = messageFilter == null ? null : searchFilter.MessageFilter!.MatchType;
-        
-        var redblocksResult = await redblockRepo.SelectRedblocksByProject(
-            projectId, 
-            statusFilter, statusFilterMatchType, 
-            deletionFilter, deletionFilterMatchType, 
-            userAssignmentFilter, userAssignmentFilterMatchType, 
-            roleAssignmentFilter, roleAssignmentFilterMatchType,
-            messageFilter, messageFilterMatchType);
-        
-        if  (!redblocksResult.TryGetDataNonNull(out var redblockEntities))
-            return Result<RedblockSearchResult>.Failure(redblocksResult.ErrorMessage ?? "Failed to retrieve redblocks for project.", redblocksResult.StatusCode);
 
-        var resultList = redblockEntities.Select(Redblock.FromModel).ToList();
-        var failedRedblocks = new List<FailedRedblockLookup>();
-        var successfulRedblocks = new List<Redblock>();
-        foreach (var redblockEntity in resultList)
-        {
-            var statusesResult = await redblockRepo.SelectRedblockStatuses(redblockEntity.RedblockId);
-            if (!statusesResult.TryGetDataNonNull(out var statusEntities))
+        // Call repository to get search results with pagination
+        var redblocksResult = await redblockRepo.SelectRedblocksByProject(
+            projectId,
+            statusFilter, statusFilterMatchType,
+            deletionFilter, deletionFilterMatchType,
+            userAssignmentFilter, userAssignmentFilterMatchType,
+            roleAssignmentFilter, roleAssignmentFilterMatchType,
+            messageFilter, messageFilterMatchType,
+            pageSize,
+            searchFilter.SearchAfterRedblockId);
+
+        if (!redblocksResult.IsSuccessful)
+            return Result<RedblockSearchResult>.Failure(
+                redblocksResult.ErrorMessage ?? "Failed to retrieve redblocks for project.",
+                redblocksResult.StatusCode);
+
+        var (redblockEntities, hasMore, nextCursor) = redblocksResult.GetNonNullOrThrow();
+        var redblockList = redblockEntities.ToList();
+
+        // Get the project details to include in identifiers
+        var projectResult = await redblockRepo.SelectProjectById(projectId);
+        if (!projectResult.TryGetDataNonNull(out var projectEntity))
+            return Result<RedblockSearchResult>.Failure(
+                projectResult.ErrorMessage ?? "Failed to retrieve project for search results.",
+                projectResult.StatusCode);
+
+        // Map to search identifiers (lightweight results)
+        var searchIdentifiers = redblockList
+            .Select(rb => new RedblockSearchIdentifier
             {
-                failedRedblocks.Add(new FailedRedblockLookup
-                {
-                    Redblock = redblockEntity,
-                    FailureReason = "Status lookup failed: " + (statusesResult.ErrorMessage ?? "Unknown error")
-                });
-                continue;
-            }
-            redblockEntity.Statuses = statusEntities.Select(RedblockStatus.FromModel).ToList();
-            
-            var userAssignmentsResult = await redblockRepo.SelectRedblockUserAssignments(redblockEntity.RedblockId);
-            if (!userAssignmentsResult.TryGetDataNonNull(out var userAssignmentEntities)) {
-                failedRedblocks.Add(new FailedRedblockLookup
-                {
-                    Redblock = redblockEntity,
-                    FailureReason = "User assignment lookup failed: " + (userAssignmentsResult.ErrorMessage ?? "Unknown error")
-                });
-                continue;
-            }
-            redblockEntity.UserAssignments = userAssignmentEntities.Select(RedblockUserAssignment.FromModel).ToList();
-            
-            var roleAssignmentsResult = await redblockRepo.SelectRedblockRoleAssignments(redblockEntity.RedblockId);
-            if (!roleAssignmentsResult.TryGetDataNonNull(out var roleAssignmentEntities))
-            {
-                failedRedblocks.Add(new FailedRedblockLookup
-                {
-                    Redblock = redblockEntity,
-                    FailureReason = "Role assignment lookup failed: " + (roleAssignmentsResult.ErrorMessage ?? "Unknown error")
-                });
-                continue;
-            }
-            redblockEntity.RoleAssignments = roleAssignmentEntities.Select(RedblockRoleAssignment.FromModel).ToList();
-            
-            successfulRedblocks.Add(redblockEntity);
-        }
-        
+                RedblockId = rb.RedblockId,
+                ProjectKey = projectEntity.ProjectKey,
+                KeyNumber = rb.KeyNumber
+            })
+            .ToList();
+
         return Result<RedblockSearchResult>.Success(new RedblockSearchResult
         {
-            FoundRedblocks = successfulRedblocks,
-            FailedRedblockLookups = failedRedblocks
+            Results = searchIdentifiers,
+            HasMore = hasMore,
+            NextCursorRedblockId = nextCursor,
+            ReturnedCount = redblockList.Count,
+            FailedRedblockLookups = []
         });
     }
 

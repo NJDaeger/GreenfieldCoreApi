@@ -6,22 +6,38 @@ public class RedblockSearchRequest
     /// Only return redblocks that match the StatusFilter. If null, status is not used for filtering.
     /// </summary>
     public StatusFilter? StatusFilter { get; set; }
+    
     /// <summary>
     /// Only return redblocks that match the DeletionFilter. If null, deletion status is not used for filtering.
     /// </summary>
     public DeletionFilter? DeletionFilter { get; set; }
+    
     /// <summary>
     /// Only return redblocks that match the UserAssignmentFilter. If null, user assignments are not used for filtering.
     /// </summary>
     public UserAssignmentFilter? UserAssignmentFilter { get; set; }
+    
     /// <summary>
     /// Only return redblocks that match the RoleAssignmentFilter. If null, role assignments are not used for filtering.
     /// </summary>
     public RoleAssignmentFilter? RoleAssignmentFilter { get; set; }
+    
     /// <summary>
     /// Only return redblocks that match the MessageFilter. If null, message content is not used for filtering.
     /// </summary>
     public MessageFilter? MessageFilter { get; set; }
+
+    /// <summary>
+    /// Number of results to return per page. Defaults to 50. Maximum is 500.
+    /// </summary>
+    public int PageSize { get; set; } = 50;
+
+    /// <summary>
+    /// The RedblockId to start after for cursor-based pagination. 
+    /// If null, search starts from the beginning.
+    /// Enables efficient pagination for large result sets.
+    /// </summary>
+    public long? SearchAfterRedblockId { get; set; }
 }
 
 /// <summary>

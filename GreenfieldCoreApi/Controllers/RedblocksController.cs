@@ -101,23 +101,31 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     #region Redblock Routes
 
     /// <summary>
-    /// Retrieves a list of redblocks for a specific project, optionally filtered by search criteria.
+    /// Searches for redblocks in a project with optional filters, returning paginated results as lightweight identifiers.
     /// </summary>
     /// <param name="projectKey">The unique Key of the redblock project.</param>
-    /// <param name="searchFilter">Optional search criteria to filter the redblocks.</param>
-    /// <returns>A list of redblocks matching the specified criteria.</returns>
-    [HttpGet("{projectKey:regex(\\D+)}/search")]
+    /// <param name="searchFilter">Search criteria including filters and pagination parameters.</param>
+    /// <returns>A paginated list of redblock identifiers matching the specified criteria.</returns>
+    [HttpPost("{projectKey:regex(\\D+)}/search")]
     [Authorize(Roles = "Redblocks.Read,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces(typeof(RedblockSearchResult))]
-    public async Task<IActionResult> GetRedblocksByProject([FromRoute] string projectKey, [FromBody] RedblockSearchRequest? searchFilter = null)
+    public async Task<IActionResult> SearchRedblocks([FromRoute] string projectKey, [FromBody] RedblockSearchRequest? searchFilter = null)
     {
         var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
         if (!projectKeyResult.TryGetDataNonNull(out var project))
             return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
-        
+
         var filter = searchFilter ?? new RedblockSearchRequest();
+        
+        // Validate PageSize
+        if (filter.PageSize < 1)
+            return BadRequest("PageSize must be at least 1.");
+        if (filter.PageSize > 500)
+            return BadRequest("PageSize cannot exceed 500.");
+
         var redblocksResult = await redblockService.GetRedblocksByProject(project.ProjectId, filter);
         return redblocksResult.IsSuccessful
             ? Ok(redblocksResult.GetNonNullOrThrow())
