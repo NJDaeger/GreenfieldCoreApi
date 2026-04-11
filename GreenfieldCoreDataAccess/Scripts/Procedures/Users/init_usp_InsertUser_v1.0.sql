@@ -1,7 +1,7 @@
 -- DependsOn: ScriptHistory, Users
 create procedure if not exists `Users.usp_InsertUser`(
     p_MinecraftUuid char(36),
-    p_MinecraftUsername nvarchar(16))
+    p_MinecraftUsername varchar(16))
 begin
     -- Attempt insert; ignore if UUID already exists
     insert ignore into `Users.Users` (MinecraftUuid, MinecraftUsername)

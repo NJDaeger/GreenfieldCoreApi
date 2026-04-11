@@ -2,7 +2,7 @@
 create table if not exists `Users.Users` (
     UserId bigint auto_increment not null primary key unique,
     MinecraftUuid char(36) not null unique,
-    MinecraftUsername nvarchar(16) not null,
+    MinecraftUsername varchar(16) not null,
     CreatedOn datetime default current_timestamp not null
 ) character set utf8mb4 collate utf8mb4_unicode_ci;
 

@@ -1,7 +1,7 @@
 -- DependsOn: ScriptHistory, PatreonConnections
 create procedure if not exists `Connections.Patreon.usp_UpdatePatreonConnectionProfile`(
     p_PatreonConnectionId bigint,
-    p_FullName nvarchar(256),
+    p_FullName varchar(256),
     p_Pledge decimal
 )
 begin

@@ -1,7 +1,7 @@
 -- DependsOn: ScriptHistory, Codes
 create procedure if not exists `BuildCodes.usp_InsertCode`(
     p_ListOrder int,
-    p_BuildCode nvarchar(4096))
+    p_BuildCode varchar(4096))
 begin
     insert into `BuildCodes.Codes` (
         ListOrder,

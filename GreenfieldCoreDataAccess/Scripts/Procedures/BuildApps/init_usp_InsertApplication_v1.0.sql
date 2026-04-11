@@ -2,10 +2,10 @@
 create procedure if not exists `BuildApps.usp_InsertApplication`(
     p_UserId bigint,
     p_UserAge int,
-    p_UserNationality nvarchar(128),
-    p_AdditionalBuildingInformation nvarchar(4096),
-    p_WhyJoinGreenfield nvarchar(4096),
-    p_AdditionalComments nvarchar(4096))
+    p_UserNationality varchar(128),
+    p_AdditionalBuildingInformation varchar(4096),
+    p_WhyJoinGreenfield varchar(4096),
+    p_AdditionalComments varchar(4096))
 begin
     insert into `BuildApps.Applications` (
         UserId,
