@@ -1,7 +1,7 @@
 create table if not exists `ScriptManager.ScriptHistory` (
     ScriptHistoryId bigint not null unique auto_increment,
     IsInit bit not null,
-    AppliesTo nvarchar(255) not null,
+    AppliesTo varchar(255) not null,
     Major int not null,
     Minor int not null,
     AppliedAt datetime not null default CURRENT_TIMESTAMP,
@@ -10,7 +10,7 @@ create table if not exists `ScriptManager.ScriptHistory` (
 
 create procedure if not exists `ScriptManager.usp_RecordScriptExecution`(
     p_IsInit bit,
-    p_AppliesTo nvarchar(255),
+    p_AppliesTo varchar(255),
     p_Major int,
     p_Minor int
 )
@@ -21,7 +21,7 @@ end;
 
 create procedure if not exists `ScriptManager.usp_ShouldScriptBeApplied`(
     p_IsInit bit,
-    p_AppliesTo nvarchar(255),
+    p_AppliesTo varchar(255),
     p_Major int,
     p_Minor int
 )
