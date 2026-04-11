@@ -31,9 +31,6 @@ public class PatreonService(IUnitOfWork uow,
 
     public async Task<Result<IEnumerable<PatreonConnection>>> GetAllPatreonConnections()
     {
-        if (patreonConnectionCache.GetCount() != 0)
-            return Result<IEnumerable<PatreonConnection>>.Success(patreonConnectionCache.GetValues());
-        
         var repo = uow.Repository<IPatreonConnectionRepository>();
         var selectResult = await repo.SelectAllConnections();
         return selectResult.TryGetDataNonNull(out var accountEntities)

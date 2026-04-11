@@ -1,0 +1,12 @@
+ALTER TABLE `ScriptManager.ScriptHistory` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
+ALTER TABLE `BuildApps.Applications` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
+ALTER TABLE `BuildApps.ApplicationStatus` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
+ALTER TABLE `BuildApps.ImageLinks` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
+ALTER TABLE `BuildCodes.Codes` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
+ALTER TABLE `Clients.ClientRoles` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
+ALTER TABLE `Clients.Clients` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
+ALTER TABLE `Connections.DiscordConnections` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
+ALTER TABLE `Connections.PatreonConnections` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
+ALTER TABLE `Users.UserDiscordConnections` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
+ALTER TABLE `Users.UserPatreonConnections` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
+ALTER TABLE `Users.Users` CONVERT TO CHARACTER SET utf8mb4 collate utf8mb4_unicode_ci;
