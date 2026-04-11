@@ -16,9 +16,6 @@ public class DiscordService(
     
     public async Task<Result<IEnumerable<DiscordConnection>>> GetAllDiscordConnections()
     {
-        if (discordConnectionCache.GetCount() != 0)
-            return Result<IEnumerable<DiscordConnection>>.Success(discordConnectionCache.GetValues());
-        
         var repo = uow.Repository<IDiscordConnectionRepository>();
         var selectAllResult = await repo.SelectAllConnections();
         return selectAllResult.TryGetDataNonNull(out var accounts)
