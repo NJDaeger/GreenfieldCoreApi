@@ -140,7 +140,9 @@ public abstract class BaseScriptManager : IScriptManager
     
     private IEnumerable<Script> GetScripts(string root)
     {
-        return Directory.GetFiles(root, "*.sql", SearchOption.AllDirectories).Select(Script.FromFile);
+        return Directory.GetFiles(root, "*.sql", SearchOption.AllDirectories)
+            .Where(p => !p.Contains("Unmanaged", StringComparison.OrdinalIgnoreCase))
+            .Select(Script.FromFile);
     }
     
     private IEnumerable<Script> OrderScripts(IEnumerable<Script> scripts)
