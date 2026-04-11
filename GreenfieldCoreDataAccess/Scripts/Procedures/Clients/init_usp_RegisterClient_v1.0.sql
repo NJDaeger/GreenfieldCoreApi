@@ -1,9 +1,9 @@
 -- DependsOn: ScriptHistory, Clients
 create procedure if not exists `Clients.usp_RegisterClient`(
     p_ClientId char(36),
-    p_ClientName varchar(255),
-    p_ClientSecretHash varchar(255),
-    p_Salt varchar(255))
+    p_ClientName nvarchar(255),
+    p_ClientSecretHash nvarchar(255),
+    p_Salt nvarchar(255))
 begin
 insert into `Clients.Clients` (ClientId, ClientName, ClientSecretHash, Salt)
 values (p_ClientId, p_ClientName, p_ClientSecretHash, p_Salt);

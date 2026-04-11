@@ -1,8 +1,8 @@
 -- DependsOn: ScriptHistory, ImageLinks
 create procedure if not exists `BuildApps.usp_UpdateImageLink`(
     p_ImageLinkId bigint,
-    p_LinkType varchar(256),
-    p_ImageLink varchar(2048))
+    p_LinkType nvarchar(256),
+    p_ImageLink nvarchar(2048))
 begin
     update `BuildApps.ImageLinks` bali
     set

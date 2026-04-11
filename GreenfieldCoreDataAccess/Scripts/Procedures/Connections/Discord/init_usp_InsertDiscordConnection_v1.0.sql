@@ -1,12 +1,12 @@
 -- DependsOn: ScriptHistory, DiscordConnections
 create procedure if not exists `Connections.Discord.usp_InsertDiscordConnection`(
-    p_RefreshToken varchar(512),
-    p_AccessToken varchar(512),
-    p_TokenType varchar(64),
+    p_RefreshToken nvarchar(512),
+    p_AccessToken nvarchar(512),
+    p_TokenType nvarchar(64),
     p_TokenExpiry datetime,
-    p_Scope varchar(1024),
+    p_Scope nvarchar(1024),
     p_DiscordSnowflake bigint unsigned,
-    p_DiscordUsername varchar(256)
+    p_DiscordUsername nvarchar(256)
 )
 begin
     insert ignore into `Connections.DiscordConnections` (

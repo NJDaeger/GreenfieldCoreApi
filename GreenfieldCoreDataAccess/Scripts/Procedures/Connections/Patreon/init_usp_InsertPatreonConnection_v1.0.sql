@@ -1,12 +1,12 @@
 -- DependsOn: ScriptHistory, PatreonConnections
 create procedure if not exists `Connections.Patreon.usp_InsertPatreonConnection`(
-    p_RefreshToken varchar(512),
-    p_AccessToken varchar(512),
-    p_TokenType varchar(64),
+    p_RefreshToken nvarchar(512),
+    p_AccessToken nvarchar(512),
+    p_TokenType nvarchar(64),
     p_TokenExpiry datetime,
-    p_Scope varchar(1024),
+    p_Scope nvarchar(1024),
     p_PatreonId bigint,
-    p_FullName varchar(256),
+    p_FullName nvarchar(256),
     p_Pledge decimal
 )
 begin

@@ -1,8 +1,8 @@
 -- DependsOn: ScriptHistory, ApplicationStatus
 create procedure if not exists `BuildApps.usp_InsertApplicationStatus`(
     p_ApplicationId bigint,
-    p_Status varchar(256),
-    p_StatusMessage varchar(2048))
+    p_Status nvarchar(256),
+    p_StatusMessage nvarchar(2048))
 begin
     insert into `BuildApps.ApplicationStatus` (
         ApplicationId,
