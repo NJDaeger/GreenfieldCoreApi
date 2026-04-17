@@ -2,7 +2,7 @@
 create procedure if not exists `Redblocks.usp_InsertStatus`(
     p_ProjectId bigint,
     p_KeyNumber bigint,
-    p_Status nvarchar(32),
+    p_Status varchar(32),
     p_CreatedBy bigint)
 begin
     declare v_RedblockId bigint;

@@ -1,7 +1,20 @@
+using GreenfieldCoreDataAccess.Database.Models;
+
 namespace GreenfieldCoreServices.Models.Redblocks;
 
 public class RedblockSearchRequest
 {
+    
+    /// <summary>
+    /// The location to search around. If provided, the results will be ordered by distance from this location. If not provided, results will be ordered by index.
+    /// </summary>
+    public Location? Location { get; set; }
+    
+    /// <summary>
+    /// The radius around the Location to search within. Location must be provided to search within a given radius.
+    /// </summary>
+    public long? Radius { get; set; }
+    
     /// <summary>
     /// Only return redblocks that match the StatusFilter. If null, status is not used for filtering.
     /// </summary>

@@ -3,7 +3,7 @@ create table if not exists `Redblocks.Redblocks` (
     RedblockId bigint not null unique auto_increment primary key,
     ProjectId bigint not null,
     KeyNumber bigint not null,
-    Message nvarchar(1024) not null,
+    Message varchar(1024) not null,
     X int not null,
     Y int not null,
     Z int not null,
@@ -19,7 +19,8 @@ create table if not exists `Redblocks.Redblocks` (
     constraint FK_Redblocks_DeletedBy foreign key (DeletedBy) references `Users.Users`(UserId)
 ) character set utf8mb4 collate utf8mb4_unicode_ci;
 
-drop trigger if exists `Redblocks.trg_UsersBeforeDelete_SetRedblocksCreatedBy`;
+create index if not exists IX_Redblocks_ProjectId_XYZ on `Redblocks.Redblocks` (ProjectId, X, Y, Z);
+
 create trigger `Redblocks.trg_UsersBeforeDelete_SetRedblocksCreatedBy`
     before delete on `Users.Users`
     for each row
@@ -27,7 +28,6 @@ create trigger `Redblocks.trg_UsersBeforeDelete_SetRedblocksCreatedBy`
     set rb.CreatedBy = 1
     where rb.CreatedBy = old.UserId;
 
-drop trigger if exists `Redblocks.trg_UsersBeforeDelete_SetRedblocksDeletedBy`;
 create trigger `Redblocks.trg_UsersBeforeDelete_SetRedblocksDeletedBy`
     before delete on `Users.Users`
     for each row
@@ -35,7 +35,6 @@ create trigger `Redblocks.trg_UsersBeforeDelete_SetRedblocksDeletedBy`
     set rb.DeletedBy = 1
     where rb.DeletedBy = old.UserId;
 
-drop trigger if exists `Redblocks.trg_UsersBeforeDelete_SetRedblocksUpdatedBy`;
 create trigger `Redblocks.trg_UsersBeforeDelete_SetRedblocksUpdatedBy`
     before delete on `Users.Users`
     for each row

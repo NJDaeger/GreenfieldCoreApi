@@ -16,8 +16,12 @@ public record RedblockEntity(
     int Z,
     long CreatedBy,
     DateTime CreatedOn,
+    long? UpdatedBy,
+    DateTime? UpdatedOn,
     long? DeletedBy,
     DateTime? DeletedOn);
+
+public record RedblockWithLatestStatusEntity(long RedblockId, long ProjectId, long KeyNumber, string Message, string Status, int X, int Y, int Z, long CreatedBy, DateTime CreatedOn, long? UpdatedBy, DateTime? UpdatedOn, long? DeletedBy, DateTime? DeletedOn, decimal? DistanceSquared) : RedblockEntity(RedblockId, ProjectId, KeyNumber, Message, X, Y, Z, CreatedBy, CreatedOn, UpdatedBy, UpdatedOn, DeletedBy, DeletedOn);
 
 public record RedblockStatusEntity(
     long StatusId,

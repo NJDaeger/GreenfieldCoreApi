@@ -1,7 +1,7 @@
 -- DependsOn: ScriptHistory, Projects, Redblocks, Statuses
 create procedure if not exists `Redblocks.usp_InsertRedblock`(
     p_ProjectId bigint,
-    p_Message nvarchar(1024),
+    p_Message varchar(1024),
     p_X int,
     p_Y int,
     p_Z int,
@@ -63,6 +63,8 @@ begin
                 rb.Z,
                 rb.CreatedBy,
                 rb.CreatedOn,
+                rb.UpdatedBy,
+                rb.UpdatedOn,
                 rb.DeletedBy,
                 rb.DeletedOn
             from `Redblocks.Redblocks` rb

@@ -1,7 +1,7 @@
 -- DependsOn: ScriptHistory, Projects
 create procedure if not exists `Redblocks.usp_UpdateProject`(
     p_ProjectId bigint,
-    p_ProjectName nvarchar(64))
+    p_ProjectName varchar(64))
 begin
     update `Redblocks.Projects`
     set ProjectName = p_ProjectName

@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using System.Net;
 using Dapper;
+using GreenfieldCoreDataAccess.Database.Helpers;
 using GreenfieldCoreDataAccess.Database.Models;
 using GreenfieldCoreDataAccess.Database.Procedures;
 using GreenfieldCoreDataAccess.Database.Repositories.Interfaces;
@@ -106,254 +107,277 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
         }
     }
 
-    public async Task<Result<RedblockEntity>> SelectRedblockByKey(long projectId, long keyNumber)
+    public async Task<Result<RedblockWithLatestStatusEntity>> SelectRedblockByKey(long projectId, long keyNumber)
     {
         try
         {
             var result = await Connection.QuerySingleProcedure(StoredProcs.Redblocks.SelectRedblockByKey, (projectId, keyNumber), Transaction);
             return result is null
-                ? Result<RedblockEntity>.Failure("Redblock not found.", HttpStatusCode.NotFound)
-                : Result<RedblockEntity>.Success(result);
+                ? Result<RedblockWithLatestStatusEntity>.Failure("Redblock not found.", HttpStatusCode.NotFound)
+                : Result<RedblockWithLatestStatusEntity>.Success(result);
         }
         catch (DbException ex)
         {
             logger.LogDebug("{ErrorMessage}", ex.Message);
-            return Result<RedblockEntity>.Failure($"Failed to select redblock: {ex.Message}", HttpStatusCode.InternalServerError);
+            return Result<RedblockWithLatestStatusEntity>.Failure($"Failed to select redblock: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
-    public async Task<Result<RedblockEntity>> SelectRedblockById(long redblockId)
+    public async Task<Result<(IEnumerable<RedblockWithLatestStatusEntity> Redblocks, bool HasMore, long? NextCursor)>>
+        SelectRedblocksByProject(long projectId,
+            Location? location,
+            long? radius,
+            List<string> statuses, string? statusFilterMatchType,
+            List<long> deletionUserIds, string? deletionFilterMatchType,
+            List<long> userAssignmentUserIds, string? userAssignmentFilterMatchType,
+            List<string> roleAssignmentRoleNames, string? roleAssignmentFilterMatchType,
+            string messageFilter, string? messageFilterMatchType)
+    {
+        try
+        {
+            var statementBuilder = StatementBuilder
+                .SelectFrom("`Redblocks.Redblocks` rb")
+                .Columns("""
+                            rb.RedblockId
+                            ,rb.ProjectId 
+                            ,rb.KeyNumber
+                            ,rb.Message
+                            ,rs_ranked.Status
+                            ,rb.X
+                            ,rb.Y
+                            ,rb.Z
+                            ,rb.CreatedBy
+                            ,rb.CreatedOn
+                            ,rb.UpdatedBy
+                            ,rb.UpdatedOn
+                            ,rb.DeletedBy
+                            ,rb.DeletedOn
+                            """)
+                .Join("""
+                          inner join (
+                            select rs.*, ROW_NUMBER() over (partition by rs.RedblockId order by rs.CreatedOn desc) as StatusNumber
+                            from `Redblocks.Statuses` rs
+                          ) rs_ranked on rb.RedblockId = rs_ranked.RedblockId and rs_ranked.StatusNumber = 1
+                        """)
+                .WithParameter("@ProjectId", projectId)
+                .Where("rb.ProjectId = @ProjectId");
+
+            var statusStatementPart = BuildStatusStatementParts(statuses, statusFilterMatchType);
+            if (statusStatementPart != null) statementBuilder.WithPart(statusStatementPart);
+
+            var deletionStatementPart = BuildDeletionStatementParts(deletionUserIds, deletionFilterMatchType);
+            if (deletionStatementPart != null) statementBuilder.WithPart(deletionStatementPart);
+
+            var userAssignmentStatementPart = BuildUserAssignmentStatementParts(userAssignmentUserIds, userAssignmentFilterMatchType);
+            if (userAssignmentStatementPart != null) statementBuilder.WithPart(userAssignmentStatementPart);
+
+            var roleAssignmentStatementPart = BuildRoleAssignmentStatementParts(roleAssignmentRoleNames, roleAssignmentFilterMatchType);
+            if (roleAssignmentStatementPart != null) statementBuilder.WithPart(roleAssignmentStatementPart);
+
+            var messageStatementPart = BuildMessageStatementParts(messageFilter, messageFilterMatchType);
+            if (messageStatementPart != null) statementBuilder.WithPart(messageStatementPart);
+
+            var spatialStatementPart = BuildSpatialStatementParts(location, radius);
+            if (spatialStatementPart != null) statementBuilder.WithPart(spatialStatementPart);
+
+            var statement = statementBuilder.Build();
+            var redblocks = await Connection.QueryAsync<RedblockWithLatestStatusEntity>(statement.query, statement.parameters, Transaction);
+            
+            return Result<(IEnumerable<RedblockWithLatestStatusEntity> redblocks, bool hasMore, long? nextCursor)>.Success((redblocks, false, null)); //pagination not implemented, so hasMore is always false and nextCursor is always null
+        }
+        catch (DbException ex)
+        {
+            logger.LogDebug("{ErrorMessage}", ex.Message);
+            return Result<(IEnumerable<RedblockWithLatestStatusEntity> redblocks, bool hasMore, long? nextCursor)>.Failure($"Failed to select redblocks: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
+    #region Query String Builders
+
+    private static StatementPart? BuildSpatialStatementParts(Location? location, long? radius)
+    {
+        if (location == null) return null;
+        var statementPart = new StatementPartBuilder()
+            .WithParameter("@LocationX", location.Value.X)
+            .WithParameter("@LocationY", location.Value.Y)
+            .WithParameter("@LocationZ", location.Value.Z)
+            .Columns("POW(rb.X - @LocationX, 2) + POW(rb.Y - @LocationY, 2) + POW(rb.Z - @LocationZ, 2) AS DistanceSquared")
+            .OrderBy("DistanceSquared ASC");
+
+        if (radius is null) return statementPart.Build();
+
+        statementPart.WithParameter("@Radius", radius)
+            .WithParameter("@RadiusSquared", radius.Value * radius.Value)
+            .Having("DistanceSquared <= @RadiusSquared");
+
+        return statementPart.Build();
+    }
+    
+    private static StatementPart? BuildStatusStatementParts(List<string> statuses, string? matchType)
+    {
+        if (string.IsNullOrEmpty(matchType)) return null;
+        var builder = new StatementPartBuilder();
+        
+        foreach (var status in statuses) 
+            builder.WithIndexedParameter("@Status", status);
+
+        var inClause = builder.Build().JoinParameterKeys();
+        
+        if (matchType.Equals("or", StringComparison.OrdinalIgnoreCase))
+            return statuses.Count == 0 
+                ? null
+                : builder.Where($"AND (rs_ranked.Status IS NULL OR rs_ranked.Status IN ({inClause}))").Build();
+        
+        if (matchType.Equals("not", StringComparison.OrdinalIgnoreCase))
+            return statuses.Count == 0 
+                ? builder.Where("AND (rs_ranked.Status IS NOT NULL)").Build() 
+                : builder.Where($"AND (rs_ranked.Status NOT IN ({inClause}) OR rs_ranked.Status IS NULL)").Build();
+        
+        return null;
+    }
+
+    private static StatementPart? BuildDeletionStatementParts(List<long>  deletionUserIds, string? matchType)
+    {
+        if (string.IsNullOrEmpty(matchType)) return null;
+        var builder = new StatementPartBuilder();
+        
+        foreach (var deletionUserId in deletionUserIds) 
+            builder.WithIndexedParameter("@DeletionUserId", deletionUserId);
+        
+        var inClause = builder.Build().JoinParameterKeys();
+        
+        if (matchType.Equals("or", StringComparison.OrdinalIgnoreCase)) 
+            return deletionUserIds.Count == 0
+                ? null //if there are no user IDs to match with "or", then we don't need to filter by deletion user at all since "or" with no values should include everything
+                : builder.Where($"AND (rb.DeletedBy IN ({inClause})) OR rb.DeletedBy IS NULL").Build();
+        
+        if (matchType.Equals("not", StringComparison.OrdinalIgnoreCase))
+            return deletionUserIds.Count == 0
+                ? builder.Where("AND (rb.DeletedBy IS NOT NULL)").Build()
+                : builder.Where($"AND (rb.DeletedBy NOT IN ({inClause}) OR rb.DeletedBy IS NULL)").Build();
+
+        if (matchType.Equals("and", StringComparison.OrdinalIgnoreCase))
+            return deletionUserIds.Count == 0
+                ? builder.Where("AND rb.DeletedBy IS NULL").Build()
+                : null; //redblocks can only have one deletion user, so "and" with multiple user IDs will not 
+        
+        return null;
+    }
+
+    private static StatementPart? BuildUserAssignmentStatementParts(List<long> userIds, string? matchType)
+    {
+        if (string.IsNullOrEmpty(matchType)) return null;
+        var builder = new StatementPartBuilder();
+        
+        foreach (var userId in userIds)
+            builder.WithIndexedParameter("@UserId", userId);
+        
+        var inClause = builder.Build().JoinParameterKeys();
+        
+        // or + [] = return regardless of assignment status
+        // or + [...] = return redblocks with at least one of the specified user assignments
+        if (matchType.Equals("or", StringComparison.OrdinalIgnoreCase))
+            return userIds.Count == 0
+                ? null
+                : builder.Join($"INNER JOIN `Redblocks.UserAssignments` rua ON rb.RedblockId = rua.RedblockId AND rua.AssignedTo IN ({inClause})").Build();
+
+        // not + [] = return only redblocks with user assignments ("not empty")
+        // not + [...] = return redblocks with no user assignments or user assignments that do not include any of the specified users
+        if (matchType.Equals("not", StringComparison.OrdinalIgnoreCase))
+            return userIds.Count == 0
+                ? builder.Join("INNER JOIN `Redblocks.UserAssignments` rua ON rb.RedblockId = rua.RedblockId").Build()
+                : builder.Join($"LEFT JOIN `Redblocks.UserAssignments` rua ON rb.RedblockId = rua.RedblockId")
+                    .Where($"AND (rua.AssignedTo NOT IN ({inClause}) OR rua.AssignedTo IS NULL)")
+                    .Build();
+        
+        // and + [] = return redblocks with no users assigned ("empty")
+        // and + [...] = return redblocks that have all the specified users assigned
+        if  (matchType.Equals("and", StringComparison.OrdinalIgnoreCase))
+            return userIds.Count == 0
+                ? builder.Join("LEFT JOIN `Redblocks.UserAssignments` rua ON rb.RedblockId = rua.RedblockId")
+                    .Where("AND rua.AssignedTo IS NULL")
+                    .Build()
+                : builder.Join($"INNER JOIN (SELECT RedblockId FROM `Redblocks.UserAssignments` WHERE AssignedTo IN ({inClause}) GROUP BY RedblockId HAVING COUNT(DISTINCT AssignedTo) = {userIds.Count}) rua ON rb.RedblockId = rua.RedblockId").Build();
+        
+        return null;
+    }
+
+    private static StatementPart? BuildRoleAssignmentStatementParts(List<string> roles, string? matchType)
+    {
+        if (string.IsNullOrEmpty(matchType)) return null;
+        var builder = new StatementPartBuilder();
+        
+        foreach (var role in roles)
+            builder.WithIndexedParameter("@Role", role);
+        
+        var inClause = builder.Build().JoinParameterKeys();
+        
+        // or + [] = return regardless of role assignment status
+        // or + [...] = return redblocks with at least one of the specified role assignments
+        if (matchType.Equals("or", StringComparison.OrdinalIgnoreCase))
+            return roles.Count == 0
+                ? null
+                : builder.Join($"INNER JOIN `Redblocks.RoleAssignments` rra ON rb.RedblockId = rra.RedblockId AND rra.Role IN ({inClause})").Build();
+
+        // not + [] = return only redblocks with role assignments ("not empty")
+        // not + [...] = return redblocks with no role assignments or role assignments that do not include any of the specified roles
+        if (matchType.Equals("not", StringComparison.OrdinalIgnoreCase))
+            return roles.Count == 0
+                ? builder.Join("INNER JOIN `Redblocks.RoleAssignments` rra ON rb.RedblockId = rra.RedblockId").Build()
+                : builder.Join("LEFT JOIN `Redblocks.RoleAssignments` rra ON rb.RedblockId = rra.RedblockId")
+                    .Where($"AND (rra.Role NOT IN ({inClause}) OR rra.Role IS NULL)")
+                    .Build();
+
+        // and + [] = return redblocks with no roles assigned ("empty")
+        // and + [...] = return redblocks that have all the specified roles assigned
+        if  (matchType.Equals("and", StringComparison.OrdinalIgnoreCase))
+            return roles.Count == 0
+                ? builder.Join("LEFT JOIN `Redblocks.RoleAssignments` rra ON rb.RedblockId = rra.RedblockId")
+                    .Where("AND rra.Role IS NULL")
+                    .Build()
+                : builder.Join($"INNER JOIN (SELECT RedblockId FROM `Redblocks.RoleAssignments` WHERE Role IN ({inClause}) GROUP BY RedblockId HAVING COUNT(DISTINCT Role) = {roles.Count}) rra ON rb.RedblockId = rra.RedblockId").Build();
+        
+        return null;
+    }
+
+    private static StatementPart? BuildMessageStatementParts(string searchText, string? matchType)
+    {
+        if (string.IsNullOrEmpty(matchType)) return null;
+        var builder = new StatementPartBuilder().WithParameter("@SearchText", searchText);
+        
+        if (matchType.Equals("contains", StringComparison.OrdinalIgnoreCase))
+            return builder.Where($"AND rb.Message LIKE CONCAT('%', @SearchText, '%')").Build();
+        
+        if (matchType.Equals("startsWith", StringComparison.OrdinalIgnoreCase))
+            return builder.Where($"AND rb.Message LIKE CONCAT(@SearchText, '%')").Build();
+        
+        if (matchType.Equals("endsWith", StringComparison.OrdinalIgnoreCase))
+            return builder.Where($"AND rb.Message LIKE CONCAT('%', @SearchText)").Build();
+        
+        if (matchType.Equals("exact", StringComparison.OrdinalIgnoreCase))
+            return builder.Where($"AND rb.Message = @SearchText").Build();
+        
+        return null;
+    }
+    
+    #endregion
+    
+    public async Task<Result<RedblockWithLatestStatusEntity>> SelectRedblockById(long redblockId)
     {
         try
         {
             var result = await Connection.QuerySingleProcedure(StoredProcs.Redblocks.SelectRedblockById, redblockId, Transaction);
             return result is null
-                ? Result<RedblockEntity>.Failure("Redblock not found.", HttpStatusCode.NotFound)
-                : Result<RedblockEntity>.Success(result);
+                ? Result<RedblockWithLatestStatusEntity>.Failure("Redblock not found.", HttpStatusCode.NotFound)
+                : Result<RedblockWithLatestStatusEntity>.Success(result);
         }
         catch (DbException ex)
         {
             logger.LogDebug("{ErrorMessage}", ex.Message);
-            return Result<RedblockEntity>.Failure($"Failed to select redblock by ID: {ex.Message}", HttpStatusCode.InternalServerError);
+            return Result<RedblockWithLatestStatusEntity>.Failure($"Failed to select redblock by ID: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
-
-    public async Task<Result<(IEnumerable<RedblockEntity> redblocks, bool hasMore, long? nextCursor)>> SelectRedblocksByProject(
-        long projectId,
-        string? statusFilter,
-        string? statusFilterMatchType,
-        string? deletionFilter,
-        string? deletionFilterMatchType,
-        string? userAssignmentFilter,
-        string? userAssignmentFilterMatchType,
-        string? roleAssignmentFilter,
-        string? roleAssignmentFilterMatchType,
-        string? messageFilter,
-        string? messageFilterMatchType,
-        int pageSize,
-        long? searchAfterRedblockId)
-    {
-        try
-        {
-            // Clamp page size to reasonable limits
-            var actualPageSize = Math.Max(1, Math.Min(pageSize, 500));
-            var fetchCount = actualPageSize + 1; // Fetch one extra to detect HasMore
-
-            var sql = BuildRedblockSearchQuery(
-                statusFilter, statusFilterMatchType,
-                deletionFilter, deletionFilterMatchType,
-                userAssignmentFilter, userAssignmentFilterMatchType,
-                roleAssignmentFilter, roleAssignmentFilterMatchType,
-                messageFilter, messageFilterMatchType,
-                searchAfterRedblockId,
-                fetchCount);
-
-            var parameters = new DynamicParameters();
-            parameters.Add("@ProjectId", projectId, DbType.Int64);
-            parameters.Add("@PageSize", fetchCount, DbType.Int32);
-
-            // Add filter parameters only if they're provided
-            if (!string.IsNullOrEmpty(statusFilter))
-                parameters.Add("@StatusFilter", statusFilter, DbType.String);
-            if (!string.IsNullOrEmpty(deletionFilter))
-                parameters.Add("@DeletionFilter", deletionFilter, DbType.String);
-            if (!string.IsNullOrEmpty(userAssignmentFilter))
-                parameters.Add("@UserAssignmentFilter", userAssignmentFilter, DbType.String);
-            if (!string.IsNullOrEmpty(roleAssignmentFilter))
-                parameters.Add("@RoleAssignmentFilter", roleAssignmentFilter, DbType.String);
-            if (!string.IsNullOrEmpty(messageFilter))
-                parameters.Add("@MessageFilter", messageFilter, DbType.String);
-            if (searchAfterRedblockId.HasValue)
-                parameters.Add("@SearchAfterRedblockId", searchAfterRedblockId.Value, DbType.Int64);
-
-            var results = await Connection.QueryAsync<RedblockEntity>(sql, parameters, Transaction);
-            var resultList = results.ToList();
-
-            var hasMore = resultList.Count > actualPageSize;
-            var returnedResults = hasMore ? resultList.Take(actualPageSize).ToList() : resultList;
-            var nextCursor = hasMore ? returnedResults.LastOrDefault()?.RedblockId : null;
-
-            return Result<(IEnumerable<RedblockEntity>, bool, long?)>.Success(
-                (returnedResults, hasMore, nextCursor));
-        }
-        catch (DbException ex)
-        {
-            logger.LogDebug("{ErrorMessage}", ex.Message);
-            return Result<(IEnumerable<RedblockEntity>, bool, long?)>.Failure(
-                $"Failed to select redblocks by project: {ex.Message}",
-                HttpStatusCode.InternalServerError);
-        }
-    }
-
-    private string BuildRedblockSearchQuery(
-        string? statusFilter, string? statusFilterMatchType,
-        string? deletionFilter, string? deletionFilterMatchType,
-        string? userAssignmentFilter, string? userAssignmentFilterMatchType,
-        string? roleAssignmentFilter, string? roleAssignmentFilterMatchType,
-        string? messageFilter, string? messageFilterMatchType,
-        long? searchAfterRedblockId,
-        int fetchCount)
-    {
-        // Build dynamic WHERE clauses based on provided filters
-        var whereClauses = new List<string> { "rb.ProjectId = @ProjectId" };
-
-        if (searchAfterRedblockId.HasValue)
-            whereClauses.Add("rb.RedblockId > @SearchAfterRedblockId");
-
-        // Status filter
-        if (!string.IsNullOrEmpty(statusFilter) && !string.IsNullOrEmpty(statusFilterMatchType))
-        {
-            whereClauses.Add(BuildStatusFilterWhereClause(statusFilterMatchType));
-        }
-
-        // Deletion filter
-        if (!string.IsNullOrEmpty(deletionFilter) && !string.IsNullOrEmpty(deletionFilterMatchType))
-        {
-            whereClauses.Add(BuildDeletionFilterWhereClause(deletionFilterMatchType));
-        }
-
-        // User assignment filter
-        if (!string.IsNullOrEmpty(userAssignmentFilter) && !string.IsNullOrEmpty(userAssignmentFilterMatchType))
-        {
-            whereClauses.Add(BuildUserAssignmentFilterWhereClause(userAssignmentFilterMatchType));
-        }
-
-        // Role assignment filter
-        if (!string.IsNullOrEmpty(roleAssignmentFilter) && !string.IsNullOrEmpty(roleAssignmentFilterMatchType))
-        {
-            whereClauses.Add(BuildRoleAssignmentFilterWhereClause(roleAssignmentFilterMatchType));
-        }
-
-        // Message filter
-        if (!string.IsNullOrEmpty(messageFilter) && !string.IsNullOrEmpty(messageFilterMatchType))
-        {
-            whereClauses.Add(BuildMessageFilterWhereClause(messageFilterMatchType));
-        }
-
-        var whereClause = string.Join(" AND ", whereClauses);
-
-        var sql = $@"
-            SELECT
-                rb.RedblockId,
-                rb.ProjectId,
-                rb.KeyNumber,
-                rb.Message,
-                rb.X,
-                rb.Y,
-                rb.Z,
-                rb.CreatedBy,
-                rb.CreatedOn,
-                rb.DeletedBy,
-                rb.DeletedOn
-            FROM `Redblocks.Redblocks` rb
-            WHERE {whereClause}
-            ORDER BY rb.RedblockId ASC
-            LIMIT @PageSize;
-        ";
-
-        return sql;
-    }
-
-    private string BuildStatusFilterWhereClause(string matchType)
-    {
-        if (matchType == "or")
-        {
-            return """
-                   rb.RedblockId IN (
-                       SELECT rs.RedblockId
-                       FROM `Redblocks.Statuses` rs
-                       WHERE rs.RedblockId = rb.RedblockId
-                         AND rs.StatusId = (
-                           SELECT MAX(s2.StatusId)
-                           FROM `Redblocks.Statuses` s2
-                           WHERE s2.RedblockId = rs.RedblockId
-                         )
-                         AND JSON_CONTAINS(@StatusFilter, JSON_QUOTE(rs.Status))
-                   )
-                   """;
-        }
-        else if (matchType == "not")
-        {
-            return """
-                   (rb.RedblockId NOT IN (
-                       SELECT rs.RedblockId
-                       FROM `Redblocks.Statuses` rs
-                       WHERE rs.RedblockId = rb.RedblockId
-                         AND rs.StatusId = (
-                           SELECT MAX(s2.StatusId)
-                           FROM `Redblocks.Statuses` s2
-                           WHERE s2.RedblockId = rs.RedblockId
-                         )
-                         AND JSON_CONTAINS(@StatusFilter, JSON_QUOTE(rs.Status))
-                   )
-                   OR rb.RedblockId NOT IN (
-                       SELECT DISTINCT RedblockId
-                       FROM `Redblocks.Statuses`
-                   ))
-                   """;
-        }
-        return "";
-    }
-
-    private string BuildDeletionFilterWhereClause(string matchType)
-    {
-        if (matchType == "or")
-            return "rb.DeletedBy IN (SELECT JSON_UNQUOTE(JSON_EXTRACT(@DeletionFilter, CONCAT('$[', idx, ']'))) FROM (SELECT 0 AS idx UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4) AS t WHERE JSON_EXTRACT(@DeletionFilter, CONCAT('$[', idx, ']')) IS NOT NULL)";
-        else if (matchType == "not")
-            return "(rb.DeletedBy IS NULL OR rb.DeletedBy NOT IN (SELECT JSON_UNQUOTE(JSON_EXTRACT(@DeletionFilter, CONCAT('$[', idx, ']'))) FROM (SELECT 0 AS idx UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4) AS t WHERE JSON_EXTRACT(@DeletionFilter, CONCAT('$[', idx, ']')) IS NOT NULL))";
-        return "";
-    }
-
-    private string BuildUserAssignmentFilterWhereClause(string matchType)
-    {
-        if (matchType == "or")
-            return "rb.RedblockId IN (SELECT DISTINCT ua.RedblockId FROM `Redblocks.UserAssignments` ua WHERE JSON_CONTAINS(@UserAssignmentFilter, JSON_QUOTE(CAST(ua.AssignedTo AS CHAR))))";
-        else if (matchType == "not")
-            return "rb.RedblockId NOT IN (SELECT DISTINCT ua.RedblockId FROM `Redblocks.UserAssignments` ua WHERE JSON_CONTAINS(@UserAssignmentFilter, JSON_QUOTE(CAST(ua.AssignedTo AS CHAR))))";
-        return "";
-    }
-
-    private string BuildRoleAssignmentFilterWhereClause(string matchType)
-    {
-        if (matchType == "or")
-            return "rb.RedblockId IN (SELECT DISTINCT ra.RedblockId FROM `Redblocks.RoleAssignments` ra WHERE JSON_CONTAINS(@RoleAssignmentFilter, JSON_QUOTE(ra.RoleName)))";
-        else if (matchType == "not")
-            return "rb.RedblockId NOT IN (SELECT DISTINCT ra.RedblockId FROM `Redblocks.RoleAssignments` ra WHERE JSON_CONTAINS(@RoleAssignmentFilter, JSON_QUOTE(ra.RoleName)))";
-        return "";
-    }
-
-    private string BuildMessageFilterWhereClause(string matchType)
-    {
-        if (matchType == "contains")
-            return "rb.Message LIKE CONCAT('%', @MessageFilter, '%')";
-        else if (matchType == "exact")
-            return "rb.Message = @MessageFilter";
-        else if (matchType == "startsWith")
-            return "rb.Message LIKE CONCAT(@MessageFilter, '%')";
-        else if (matchType == "endsWith")
-            return "rb.Message LIKE CONCAT('%', @MessageFilter)";
-        return "";
-    }
+    
 
     public async Task<Result<IEnumerable<RedblockStatusEntity>>> SelectRedblockStatuses(long redblockId)
     {

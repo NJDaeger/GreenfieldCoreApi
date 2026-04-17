@@ -61,7 +61,7 @@ public interface IRedblockRepository
     /// </summary>
     /// <param name="redblockId">The internal Redblock ID to retrieve.</param>
     /// <returns>Result containing the <see cref="RedblockEntity"/> if found, or a failed Result if no Redblock was found.</returns>
-    Task<Result<RedblockEntity>> SelectRedblockById(long redblockId);
+    Task<Result<RedblockWithLatestStatusEntity>> SelectRedblockById(long redblockId);
 
     /// <summary>
     /// Get a Redblock by project ID and Redblock key number.
@@ -69,40 +69,39 @@ public interface IRedblockRepository
     /// <param name="projectId">The project ID that the Redblock belongs to.</param>
     /// <param name="keyNumber">The Redblock key number within the project.</param>
     /// <returns>Result containing the <see cref="RedblockEntity"/> if found, or a failed Result if no Redblock was found.</returns>
-    Task<Result<RedblockEntity>> SelectRedblockByKey(long projectId, long keyNumber);
+    Task<Result<RedblockWithLatestStatusEntity>> SelectRedblockByKey(long projectId, long keyNumber);
 
     /// <summary>
-    /// Get redblock entities within a project, optionally filtered by status, deletion, user assignments, role assignments, and/or message content.
-    /// Results are returned in cursor-based paginated form.
+    /// Get Redblocks by project ID with optional filtering by status, deletion status, user assignments, role assignments, and message content.
     /// </summary>
-    /// <param name="projectId">The project ID that the Redblocks belong to.</param>
-    /// <param name="statusFilter">Optional filter for Redblock status as JSON array of strings.</param>
-    /// <param name="statusFilterMatchType">Optional match type for status filter ("or" or "not").</param>
-    /// <param name="deletionFilter">Optional filter for Redblock deletion status as JSON array of user IDs.</param>
-    /// <param name="deletionFilterMatchType">Optional match type for deletion filter ("or", "and", or "not").</param>
-    /// <param name="userAssignmentFilter">Optional filter for user assignments as JSON array of user IDs.</param>
-    /// <param name="userAssignmentFilterMatchType">Optional match type for user assignment filter ("or", "and", or "not").</param>
-    /// <param name="roleAssignmentFilter">Optional filter for role assignments as JSON array of role names.</param>
-    /// <param name="roleAssignmentFilterMatchType">Optional match type for role assignment filter ("or", "and", or "not").</param>
-    /// <param name="messageFilter">Optional filter for Redblock message content as plain string.</param>
-    /// <param name="messageFilterMatchType">Optional match type for message filter ("contains", "exact", "startsWith", "endsWith").</param>
-    /// <param name="pageSize">Number of results to return (fetches pageSize + 1 to detect HasMore).</param>
-    /// <param name="searchAfterRedblockId">For cursor-based pagination, the RedblockId to start after. Null for first page.</param>
-    /// <returns>Result containing matching <see cref="RedblockEntity"/> rows with pagination metadata (results, hasMore, nextCursor).</returns>
-    Task<Result<(IEnumerable<RedblockEntity> redblocks, bool hasMore, long? nextCursor)>> SelectRedblocksByProject(
-        long projectId,
-        string? statusFilter,
-        string? statusFilterMatchType,
-        string? deletionFilter,
-        string? deletionFilterMatchType,
-        string? userAssignmentFilter,
-        string? userAssignmentFilterMatchType,
-        string? roleAssignmentFilter,
-        string? roleAssignmentFilterMatchType,
-        string? messageFilter,
-        string? messageFilterMatchType,
-        int pageSize,
-        long? searchAfterRedblockId);
+    /// <param name="projectId"></param>
+    /// <param name="location"></param>
+    /// <param name="radius"></param>
+    /// <param name="statuses"></param>
+    /// <param name="statusFilterMatchType"></param>
+    /// <param name="deletionUserIds"></param>
+    /// <param name="deletionFilterMatchType"></param>
+    /// <param name="userAssignmentUserIds"></param>
+    /// <param name="userAssignmentFilterMatchType"></param>
+    /// <param name="roleAssignmentRoleNames"></param>
+    /// <param name="roleAssignmentFilterMatchType"></param>
+    /// <param name="messageFilter"></param>
+    /// <param name="messageFilterMatchType"></param>
+    /// <returns></returns>
+    Task<Result<(IEnumerable<RedblockWithLatestStatusEntity> Redblocks, bool HasMore, long? NextCursor)>>
+        SelectRedblocksByProject(long projectId,
+            Location? location,
+            long? radius,
+            List<string> statuses,
+            string? statusFilterMatchType,
+            List<long> deletionUserIds,
+            string? deletionFilterMatchType,
+            List<long> userAssignmentUserIds,
+            string? userAssignmentFilterMatchType,
+            List<string> roleAssignmentRoleNames,
+            string? roleAssignmentFilterMatchType,
+            string messageFilter,
+            string? messageFilterMatchType);
 
     /// <summary>
     /// Get all status rows for a Redblock by its internal Redblock ID.

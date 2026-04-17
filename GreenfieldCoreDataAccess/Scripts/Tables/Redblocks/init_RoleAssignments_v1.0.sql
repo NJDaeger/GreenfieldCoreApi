@@ -2,7 +2,7 @@
 create table if not exists `Redblocks.RoleAssignments` (
     RoleAssignmentId bigint not null unique auto_increment primary key,
     RedblockId bigint not null,
-    RoleName nvarchar(32) not null,
+    RoleName varchar(32) not null,
     CreatedBy bigint not null,
     CreatedOn datetime default current_timestamp not null,
     constraint UQ_RoleAssignments_RedblockId_RoleName unique (RedblockId, RoleName),

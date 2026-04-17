@@ -7,11 +7,14 @@ begin
         rb.ProjectId,
         rb.KeyNumber,
         rb.Message,
+        (select rs.Status from `Redblocks.Statuses` rs where rs.RedblockId = rb.RedblockId order by rs.CreatedOn desc limit 1) as Status,
         rb.X,
         rb.Y,
         rb.Z,
         rb.CreatedBy,
         rb.CreatedOn,
+        rb.UpdatedBy,
+        rb.UpdatedOn,
         rb.DeletedBy,
         rb.DeletedOn
     from `Redblocks.Redblocks` rb

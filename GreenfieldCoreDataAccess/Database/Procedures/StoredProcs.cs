@@ -672,7 +672,7 @@ public static class StoredProcs
         /// <summary>
         /// Selects a redblock by project and key number.
         /// </summary>
-        public static readonly ParameterizedQuerySingleProcedure<RedblockEntity?, (long projectId, long keyNumber)> SelectRedblockByKey = new("`Redblocks.usp_SelectRedblockByKey`", (args, parms) =>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockWithLatestStatusEntity?, (long projectId, long keyNumber)> SelectRedblockByKey = new("`Redblocks.usp_SelectRedblockByKey`", (args, parms) =>
         {
             parms.Add("p_ProjectId", args.projectId, DbType.Int64);
             parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
@@ -682,7 +682,7 @@ public static class StoredProcs
         /// <summary>
         /// Selects a redblock by its internal ID.
         /// </summary>
-        public static readonly ParameterizedQuerySingleProcedure<RedblockEntity?, long> SelectRedblockById = new("`Redblocks.usp_SelectRedblockById`", (redblockId, parms) =>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockWithLatestStatusEntity?, long> SelectRedblockById = new("`Redblocks.usp_SelectRedblockById`", (redblockId, parms) =>
         {
             parms.Add("p_RedblockId", redblockId, DbType.Int64);
             return parms;
