@@ -221,7 +221,7 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
     
     private static StatementPart? BuildStatusStatementParts(List<string> statuses, string? matchType)
     {
-        if (string.IsNullOrEmpty(matchType)) return null;
+        if (string.IsNullOrWhiteSpace(matchType)) return null;
         var builder = new StatementPartBuilder();
         
         foreach (var status in statuses) 
@@ -244,7 +244,7 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
 
     private static StatementPart? BuildDeletionStatementParts(List<long>  deletionUserIds, string? matchType)
     {
-        if (string.IsNullOrEmpty(matchType)) return null;
+        if (string.IsNullOrWhiteSpace(matchType)) return null;
         var builder = new StatementPartBuilder();
         
         foreach (var deletionUserId in deletionUserIds) 
@@ -272,7 +272,7 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
 
     private static StatementPart? BuildUserAssignmentStatementParts(List<long> userIds, string? matchType)
     {
-        if (string.IsNullOrEmpty(matchType)) return null;
+        if (string.IsNullOrWhiteSpace(matchType)) return null;
         var builder = new StatementPartBuilder();
         
         foreach (var userId in userIds)
@@ -310,7 +310,7 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
 
     private static StatementPart? BuildRoleAssignmentStatementParts(List<string> roles, string? matchType)
     {
-        if (string.IsNullOrEmpty(matchType)) return null;
+        if (string.IsNullOrWhiteSpace(matchType)) return null;
         var builder = new StatementPartBuilder();
         
         foreach (var role in roles)
@@ -348,7 +348,7 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
 
     private static StatementPart? BuildMessageStatementParts(string searchText, string? matchType)
     {
-        if (string.IsNullOrEmpty(matchType)) return null;
+        if (string.IsNullOrWhiteSpace(matchType)) return null;
         var builder = new StatementPartBuilder().WithParameter("@SearchText", searchText);
         
         if (matchType.Equals("contains", StringComparison.OrdinalIgnoreCase))

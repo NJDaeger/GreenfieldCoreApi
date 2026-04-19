@@ -9,13 +9,18 @@ namespace GreenfieldCoreDataAccess.Database.ScriptManager;
 public class ScriptManager(ILogger<IScriptManager> logger, IConfiguration config, IUnitOfWork unitOfWork) : BaseScriptManager(logger, config, unitOfWork)
 {
     
+    private bool? _hasBeenInitialized;
+    
     public override async Task<bool> HasBeenInitialized()
     { 
+        if (_hasBeenInitialized.HasValue && _hasBeenInitialized.Value) return _hasBeenInitialized.Value;
+        
         var tableExists = await UnitOfWork.Connection.ExecuteScalarAsync<int>(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'ScriptManager.ScriptHistory';",
             transaction: UnitOfWork.Transaction);
         
-        return tableExists > 0;
+        _hasBeenInitialized = tableExists > 0;
+        return _hasBeenInitialized.Value;
     }
 
     public override async Task<bool> ShouldScriptExecute(Script script)

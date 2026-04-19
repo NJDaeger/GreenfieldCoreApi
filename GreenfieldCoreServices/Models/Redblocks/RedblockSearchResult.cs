@@ -20,11 +20,9 @@ public class RedblockSearchResult
 /// A lightweight identifier for a redblock used in search results.
 /// Contains only the information needed to fetch full details via the detail endpoint.
 /// </summary>
-public class SearchedRedblockResult : IModelConvertable<RedblockWithLatestStatusEntity, SearchedRedblockResult>
+public class SearchedRedblockResult : IModelConvertable<(RedblockWithLatestStatusEntity entity, string projectKey), SearchedRedblockResult>
 {
-    public required long RedblockId { get; set; }
-    public required long ProjectId { get; set; }
-    public required long KeyNumber { get; set; }
+    public required string Key { get; set; }
     public required string Message { get; set; }
     public required string Status { get; set; }
     public required int X { get; set; }
@@ -43,25 +41,23 @@ public class SearchedRedblockResult : IModelConvertable<RedblockWithLatestStatus
         set;
     }
 
-    public static SearchedRedblockResult FromModel(RedblockWithLatestStatusEntity from)
+    public static SearchedRedblockResult FromModel((RedblockWithLatestStatusEntity entity, string projectKey) from)
     {
         return new SearchedRedblockResult
         {
-            RedblockId = from.RedblockId,
-            ProjectId = from.ProjectId,
-            KeyNumber = from.KeyNumber,
-            Message = from.Message,
-            Status = from.Status,
-            X = from.X,
-            Y = from.Y,
-            Z = from.Z,
-            CreatedBy = from.CreatedBy,
-            CreatedOn = from.CreatedOn,
-            UpdatedBy = from.UpdatedBy,
-            UpdatedOn = from.UpdatedOn,
-            DeletedBy = from.DeletedBy,
-            DeletedOn = from.DeletedOn,
-            Distance = from.DistanceSquared
+            Key = from.projectKey + "-" + from.entity.KeyNumber,
+            Message = from.entity.Message,
+            Status = from.entity.Status,
+            X = from.entity.X,
+            Y = from.entity.Y,
+            Z = from.entity.Z,
+            CreatedBy = from.entity.CreatedBy,
+            CreatedOn = from.entity.CreatedOn,
+            UpdatedBy = from.entity.UpdatedBy,
+            UpdatedOn = from.entity.UpdatedOn,
+            DeletedBy = from.entity.DeletedBy,
+            DeletedOn = from.entity.DeletedOn,
+            Distance = from.entity.DistanceSquared
         };
     }
 }

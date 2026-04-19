@@ -37,7 +37,7 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// </summary>
     /// <param name="request">The request containing the project name and key.</param>
     /// <returns>The created redblock project.</returns>
-    [HttpPost("project")]
+    [HttpPost("projects/new")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -59,13 +59,16 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// </summary>
     /// <param name="projectKey">The unique Key of the redblock project.</param>
     /// <returns>The redblock project with the specified ID.</returns>
-    [HttpGet("{projectKey:regex(\\D+)}")]
+    [HttpGet("projects/{projectKey:regex(\\D+)}")]
     [Authorize(Roles = "Redblocks.Read,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces(typeof(RedblockProject))]
     public async Task<IActionResult> GetProjectByKey([FromRoute] string projectKey)
     {
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
+        
         var projectResult = await redblockService.GetProjectByKey(projectKey);
         return projectResult.IsSuccessful
             ? Ok(projectResult.GetNonNullOrThrow())
@@ -78,7 +81,7 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="projectKey">The unique Key of the redblock project to update.</param>
     /// <param name="request">The request containing the new project name.</param>
     /// <returns>The updated redblock project.</returns>
-    [HttpPut("{projectKey:regex(\\D+)}")]
+    [HttpPut("projects/{projectKey:regex(\\D+)}")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -86,6 +89,9 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     [Produces(typeof(RedblockProject))]
     public async Task<IActionResult> UpdateProject([FromRoute] string projectKey, [FromBody] UpdateProjectRequest request)
     {
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
+        
         var projectResult = await redblockService.GetProjectByKey(projectKey);
         if (!projectResult.TryGetDataNonNull(out var project))
             return Problem(statusCode: projectResult.GetStatusCodeInt(), detail: projectResult.ErrorMessage);
@@ -105,7 +111,7 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// </summary>
     /// <param name="request">The bulk import payload.</param>
     /// <returns>A placeholder response until business logic is implemented.</returns>
-    [HttpPost("bulk")]
+    [HttpPost("import/bulk")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     public async Task<IActionResult> BulkImportRedblocks([FromBody] BulkImportRedblocksRequest request)
     {
@@ -125,7 +131,7 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="projectKey">The unique Key of the redblock project.</param>
     /// <param name="searchFilter">Search criteria including filters and pagination parameters.</param>
     /// <returns>A paginated list of redblock identifiers matching the specified criteria.</returns>
-    [HttpPost("{projectKey:regex(\\D+)}/search")]
+    [HttpPost("search/{projectKey:regex(\\D+)}")]
     [Authorize(Roles = "Redblocks.Read,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -133,19 +139,15 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     [Produces(typeof(RedblockSearchResult))]
     public async Task<IActionResult> SearchRedblocks([FromRoute] string projectKey, [FromBody] RedblockSearchRequest searchFilter)
     {
-        if (string.IsNullOrWhiteSpace(projectKey))
-            return BadRequest("Project key must be provided.");
-        
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
         
         if (searchFilter.ResultsPerPage < 1)
-            return BadRequest("ResultsPerPage must be at least 1.");
+            return Problem("ResultsPerPage must be at least 1.", statusCode: StatusCodes.Status400BadRequest);
         if (searchFilter.CurrentPage < 1)
-            return BadRequest("CurrentPage must be at least 1.");
+            return Problem("CurrentPage must be at least 1.", statusCode: StatusCodes.Status400BadRequest);
 
-        var redblocksResult = await redblockService.GetRedblocksByProject(project.ProjectId, searchFilter);
+        var redblocksResult = await redblockService.SearchRedblocks(projectKey, searchFilter);
         return redblocksResult.IsSuccessful
             ? Ok(redblocksResult.GetNonNullOrThrow())
             : Problem(statusCode: redblocksResult.GetStatusCodeInt(), detail: redblocksResult.ErrorMessage);
@@ -157,19 +159,17 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="projectKey"></param>
     /// <param name="request"></param>
     /// <returns></returns>
-    [HttpPost("{projectKey:regex(\\D+)}/redblock")]
+    [HttpPost("projects/{projectKey:regex(\\D+)}/new")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces(typeof(Redblock))]
     public async Task<IActionResult> CreateRedblock([FromRoute] string projectKey, [FromBody] CreateRedblockRequest request)
     {
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
         
-        var redblockResult = await redblockService.CreateRedblock(
-            project.ProjectId,
+        var redblockResult = await redblockService.CreateRedblock(projectKey,
             request.X,
             request.Y,
             request.Z,
@@ -187,7 +187,7 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
             new
             {
                 version = HttpContext.GetRequestedApiVersion()?.ToString(),
-                projectKey = project.ProjectKey,
+                projectKey,
                 redblockKey = createdRedblock.KeyNumber
             },
             createdRedblock);
@@ -199,18 +199,17 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="projectKey">The key of the project.</param>
     /// <param name="redblockKey">The unique key of the redblock.</param>
     /// <returns>The redblock if found.</returns>
-    [HttpGet("{projectKey:regex(\\D+)}/{redblockKey:long}")]
+    [HttpGet("{projectKey:regex(\\D+)}-{redblockKey:long}")]
     [Authorize(Roles = "Redblocks.Read,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces(typeof(Redblock))]
     public async Task<IActionResult> GetRedblockByKey([FromRoute] string projectKey, [FromRoute] long redblockKey)
     {
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
         
-        var redblockResult = await redblockService.GetRedblockByKey(project.ProjectId, redblockKey);
+        var redblockResult = await redblockService.GetRedblockByKey(projectKey, redblockKey);
         return redblockResult.IsSuccessful
             ? Ok(redblockResult.GetNonNullOrThrow())
             : Problem(statusCode: redblockResult.GetStatusCodeInt(), detail: redblockResult.ErrorMessage);
@@ -223,17 +222,16 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="redblockKey">The unique key of the redblock.</param>
     /// <param name="request">The request containing the updated message.</param>
     /// <returns>The result of the update operation.</returns>
-    [HttpPut("{projectKey:regex(\\D+)}/{redblockKey:long}")]
+    [HttpPut("{projectKey:regex(\\D+)}-{redblockKey:long}")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateRedblock([FromRoute] string projectKey, [FromRoute] long redblockKey, [FromBody] UpdateRedblockRequest request)
     {
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
         
-        var updateResult = await redblockService.UpdateRedblock(project.ProjectId, redblockKey, request.Message, request.UpdatedBy);
+        var updateResult = await redblockService.UpdateRedblock(projectKey, redblockKey, request.Message, request.UpdatedBy);
         return updateResult.IsSuccessful
             ? Ok()
             : Problem(statusCode: updateResult.GetStatusCodeInt(), detail: updateResult.ErrorMessage);
@@ -246,18 +244,17 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="keyNumber">The unique key of the redblock.</param>
     /// <param name="request">The request containing the full set of entity GUIDs.</param>
     /// <returns>The persisted list of associated entity GUIDs.</returns>
-    [HttpPut("{projectKey:regex(\\D+)}/{keyNumber:long}/entities")]
+    [HttpPut("{projectKey:regex(\\D+)}-{keyNumber:long}/entities")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces(typeof(List<Guid>))]
     public async Task<IActionResult> ReplaceRedblockEntities([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromBody] ReplaceRedblockEntitiesRequest request)
     {
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
 
-        var replaceResult = await redblockService.ReplaceRedblockEntities(project.ProjectId, keyNumber, request.Entities);
+        var replaceResult = await redblockService.ReplaceRedblockEntities(projectKey, keyNumber, request.Entities);
         return replaceResult.IsSuccessful
             ? Ok(replaceResult.GetNonNullOrThrow())
             : Problem(statusCode: replaceResult.GetStatusCodeInt(), detail: replaceResult.ErrorMessage);
@@ -269,17 +266,16 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="projectKey">The key of the project.</param>
     /// <param name="keyNumber">The unique key of the redblock.</param>
     /// <returns>The result of the clear operation.</returns>
-    [HttpDelete("{projectKey:regex(\\D+)}/{keyNumber:long}/entities")]
+    [HttpDelete("{projectKey:regex(\\D+)}-{keyNumber:long}/entities")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ClearRedblockEntities([FromRoute] string projectKey, [FromRoute] long keyNumber)
     {
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
 
-        var clearResult = await redblockService.ClearRedblockEntities(project.ProjectId, keyNumber);
+        var clearResult = await redblockService.ClearRedblockEntities(projectKey, keyNumber);
         return clearResult.IsSuccessful
             ? Ok()
             : Problem(statusCode: clearResult.GetStatusCodeInt(), detail: clearResult.ErrorMessage);
@@ -292,18 +288,17 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="keyNumber">The unique key of the redblock.</param>
     /// <param name="request">The request containing the status information.</param>
     /// <returns>The result of the add operation.</returns>
-    [HttpPost("{projectKey:regex(\\D+)}/{keyNumber:long}/status")]
+    [HttpPost("{projectKey:regex(\\D+)}-{keyNumber:long}/status")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces(typeof(RedblockStatus))]
     public async Task<IActionResult> AddRedblockStatus([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromBody] AddStatusRequest request)
     {
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
 
-        var statusResult = await redblockService.AddRedblockStatus(project.ProjectId, keyNumber, request.Status, request.CreatedBy);
+        var statusResult = await redblockService.AddRedblockStatus(projectKey, keyNumber, request.Status, request.CreatedBy);
         return statusResult.IsSuccessful
             ? Ok(statusResult.GetNonNullOrThrow())
             : Problem(statusCode: statusResult.GetStatusCodeInt(), detail: statusResult.ErrorMessage);
@@ -316,18 +311,17 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="keyNumber">The unique key of the redblock.</param>
     /// <param name="request">The request containing the user assignment information.</param>
     /// <returns>The result of the add operation.</returns>
-    [HttpPost("{projectKey:regex(\\D+)}/{keyNumber:long}/users")]
+    [HttpPost("{projectKey:regex(\\D+)}-{keyNumber:long}/users")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces(typeof(RedblockUserAssignment))]
     public async Task<IActionResult> AddRedblockUserAssignment([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromBody] AssignUserRequest request)
     {
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
 
-        var userAssignmentResult = await redblockService.AddRedblockUserAssignment(project.ProjectId, keyNumber, request.UserId, request.CreatedBy);
+        var userAssignmentResult = await redblockService.AddRedblockUserAssignment(projectKey, keyNumber, request.UserId, request.CreatedBy);
         return userAssignmentResult.IsSuccessful
             ? Ok(userAssignmentResult.GetNonNullOrThrow())
             : Problem(statusCode: userAssignmentResult.GetStatusCodeInt(), detail: userAssignmentResult.ErrorMessage);
@@ -340,18 +334,17 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="keyNumber">The unique key of the redblock.</param>
     /// <param name="request">The request containing the role assignment information.</param>
     /// <returns>The result of the add operation.</returns>
-    [HttpPost("{projectKey:regex(\\D+)}/{keyNumber:long}/roles")]
+    [HttpPost("{projectKey:regex(\\D+)}-{keyNumber:long}/roles")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces(typeof(RedblockRoleAssignment))]
     public async Task<IActionResult> AddRedblockRoleAssignment([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromBody] AssignRoleRequest request)
     {
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
 
-        var roleAssignmentResult = await redblockService.AddRedblockRoleAssignment(project.ProjectId, keyNumber, request.RoleName, request.CreatedBy);
+        var roleAssignmentResult = await redblockService.AddRedblockRoleAssignment(projectKey, keyNumber, request.RoleName, request.CreatedBy);
         return roleAssignmentResult.IsSuccessful
             ? Ok(roleAssignmentResult.GetNonNullOrThrow())
             : Problem(statusCode: roleAssignmentResult.GetStatusCodeInt(), detail: roleAssignmentResult.ErrorMessage);
@@ -364,17 +357,16 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="keyNumber"></param>
     /// <param name="request"></param>
     /// <returns></returns>
-    [HttpDelete("{projectKey:regex(\\D+)}/{keyNumber:long}")]
+    [HttpDelete("{projectKey:regex(\\D+)}-{keyNumber:long}")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteRedblock([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromBody] DeleteRedblockRequest request)
     {
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
     
-        var deleteResult = await redblockService.DeleteRedblock(project.ProjectId, keyNumber, request.DeletedBy);
+        var deleteResult = await redblockService.DeleteRedblock(projectKey, keyNumber, request.DeletedBy);
         return deleteResult.IsSuccessful
             ? Ok()
             : Problem(statusCode: deleteResult.GetStatusCodeInt(), detail: deleteResult.ErrorMessage);
@@ -387,17 +379,16 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="keyNumber">The unique key of the redblock.</param>
     /// <param name="userId">The ID of the user to remove from the redblock.</param>
     /// <returns>The result of the remove operation.</returns>
-    [HttpDelete("{projectKey:regex(\\D+)}/{keyNumber:long}/users/{userId:long}")]
+    [HttpDelete("{projectKey:regex(\\D+)}-{keyNumber:long}/users/{userId:long}")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RemoveRedblockUserAssignment([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromRoute] long userId)
     {
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
     
-        var removeResult = await redblockService.RemoveRedblockUserAssignment(project.ProjectId, keyNumber, userId);
+        var removeResult = await redblockService.RemoveRedblockUserAssignment(projectKey, keyNumber, userId);
         return removeResult.IsSuccessful
             ? Ok()
             : Problem(statusCode: removeResult.GetStatusCodeInt(), detail: removeResult.ErrorMessage);
@@ -410,17 +401,19 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     /// <param name="keyNumber">The unique key of the redblock.</param>
     /// <param name="roleName">The name of the role to remove from the redblock.</param>
     /// <returns>The result of the remove operation.</returns>
-    [HttpDelete("{projectKey:regex(\\D+)}/{keyNumber:long}/roles/{roleName}")]
+    [HttpDelete("{projectKey:regex(\\D+)}-{keyNumber:long}/roles/{roleName}")]
     [Authorize(Roles = "Redblocks.Write,Redblocks")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RemoveRedblockRoleAssignment([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromRoute] string roleName)
     {
-        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
-        if (!projectKeyResult.TryGetDataNonNull(out var project))
-            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+        if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
+        
+        if (string.IsNullOrWhiteSpace(roleName) || roleName.Equals($"{{{nameof(roleName)}}}", StringComparison.OrdinalIgnoreCase))
+            return Problem("Role name must be provided.", statusCode: StatusCodes.Status400BadRequest);
     
-        var removeResult = await redblockService.RemoveRedblockRoleAssignment(project.ProjectId, keyNumber, roleName);
+        var removeResult = await redblockService.RemoveRedblockRoleAssignment(projectKey, keyNumber, roleName);
         return removeResult.IsSuccessful
             ? Ok()
             : Problem(statusCode: removeResult.GetStatusCodeInt(), detail: removeResult.ErrorMessage);

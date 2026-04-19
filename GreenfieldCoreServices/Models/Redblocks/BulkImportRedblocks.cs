@@ -29,6 +29,22 @@ public class BulkImportRedblockEntry
     public List<Guid>? Armorstands { get; init; }
 }
 
+public class BulkImportFollowupWorkItem
+{
+    public required string LegacyRedblockKey { get; init; }
+    public required long ProjectId { get; init; }
+    public required long RedblockId { get; init; }
+    public required long RedblockKeyNumber { get; init; }
+    public required long CreatedByUserId { get; init; }
+    public long? AssignedUserId { get; init; }
+    public string? AssignedUsername { get; init; }
+    public string? Role { get; init; }
+    public required List<Guid> Entities { get; init; }
+    public required List<(string Status, long CreatedByUserId)> Statuses { get; init; }
+    public required bool IsDeleted { get; init; }
+    public required long SystemUserId { get; init; }
+}
+
 public class BulkImportRedblockLocation
 {
     public required long X { get; init; }
