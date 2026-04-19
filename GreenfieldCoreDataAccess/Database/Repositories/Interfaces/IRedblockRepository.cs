@@ -87,21 +87,23 @@ public interface IRedblockRepository
     /// <param name="roleAssignmentFilterMatchType"></param>
     /// <param name="messageFilter"></param>
     /// <param name="messageFilterMatchType"></param>
+    /// <param name="resultsPerPage"></param>
+    /// <param name="currentPage"></param>
     /// <returns></returns>
-    Task<Result<(IEnumerable<RedblockWithLatestStatusEntity> Redblocks, bool HasMore, long? NextCursor)>>
-        SelectRedblocksByProject(long projectId,
-            Location? location,
-            long? radius,
-            List<string> statuses,
-            string? statusFilterMatchType,
-            List<long> deletionUserIds,
-            string? deletionFilterMatchType,
-            List<long> userAssignmentUserIds,
-            string? userAssignmentFilterMatchType,
-            List<string> roleAssignmentRoleNames,
-            string? roleAssignmentFilterMatchType,
-            string messageFilter,
-            string? messageFilterMatchType);
+    Task<Result<(IEnumerable<RedblockWithLatestStatusEntity> Redblocks, long TotalResults)>> SelectRedblocksByProject(
+        long projectId,
+        Location? location,
+        long? radius,
+        List<string> statuses,
+        string? statusFilterMatchType,
+        List<long> deletionUserIds,
+        string? deletionFilterMatchType,
+        List<long> userAssignmentUserIds,
+        string? userAssignmentFilterMatchType,
+        List<string> roleAssignmentRoleNames,
+        string? roleAssignmentFilterMatchType,
+        string messageFilter,
+        string? messageFilterMatchType, int resultsPerPage, long currentPage);
 
     /// <summary>
     /// Get all status rows for a Redblock by its internal Redblock ID.

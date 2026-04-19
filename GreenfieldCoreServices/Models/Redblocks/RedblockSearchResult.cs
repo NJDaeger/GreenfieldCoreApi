@@ -11,21 +11,9 @@ public class RedblockSearchResult
     public required List<SearchedRedblockResult> Results { get; set; } = [];
     
     /// <summary>
-    /// Whether there are more results available after this page.
-    /// Use NextCursorRedblockId in a new search request to fetch the next page.
+    /// Total number of results matching the search criteria across all pages.
     /// </summary>
-    public required bool HasMore { get; set; }
-    
-    /// <summary>
-    /// The RedblockId to use as SearchAfterRedblockId to fetch the next page.
-    /// Only set if HasMore is true.
-    /// </summary>
-    public long? NextCursorRedblockId { get; set; }
-    
-    /// <summary>
-    /// Number of results returned in this page.
-    /// </summary>
-    public required int ReturnedCount { get; set; }
+    public required long TotalResults { get; set; }
 }
 
 /// <summary>

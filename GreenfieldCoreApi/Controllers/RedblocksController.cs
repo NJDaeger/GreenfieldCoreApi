@@ -133,15 +133,17 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     [Produces(typeof(RedblockSearchResult))]
     public async Task<IActionResult> SearchRedblocks([FromRoute] string projectKey, [FromBody] RedblockSearchRequest searchFilter)
     {
+        if (string.IsNullOrWhiteSpace(projectKey))
+            return BadRequest("Project key must be provided.");
+        
         var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
         if (!projectKeyResult.TryGetDataNonNull(out var project))
             return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
         
-        // Validate PageSize
-        if (searchFilter.PageSize < 1)
-            return BadRequest("PageSize must be at least 1.");
-        if (searchFilter.PageSize > 500)
-            return BadRequest("PageSize cannot exceed 500.");
+        if (searchFilter.ResultsPerPage < 1)
+            return BadRequest("ResultsPerPage must be at least 1.");
+        if (searchFilter.CurrentPage < 1)
+            return BadRequest("CurrentPage must be at least 1.");
 
         var redblocksResult = await redblockService.GetRedblocksByProject(project.ProjectId, searchFilter);
         return redblocksResult.IsSuccessful

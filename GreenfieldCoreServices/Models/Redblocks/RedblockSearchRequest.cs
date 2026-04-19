@@ -41,16 +41,14 @@ public class RedblockSearchRequest
     public MessageFilter? MessageFilter { get; set; }
 
     /// <summary>
-    /// Number of results to return per page. Defaults to 50. Maximum is 500.
+    /// Number of results to return per page.
     /// </summary>
-    public int PageSize { get; set; } = 50;
+    public int ResultsPerPage { get; set; } = 50;
 
     /// <summary>
-    /// The RedblockId to start after for cursor-based pagination. 
-    /// If null, search starts from the beginning.
-    /// Enables efficient pagination for large result sets.
+    /// The current page of results to return.
     /// </summary>
-    public long? SearchAfterRedblockId { get; set; }
+    public long CurrentPage { get; set; } = 1;
 }
 
 /// <summary>

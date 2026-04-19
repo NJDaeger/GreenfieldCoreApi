@@ -7,9 +7,21 @@ public class StatementBuilder : BaseStatementPartBuilder<StatementBuilder, (stri
     private readonly List<StatementPart> _parts = new();
     private string _from = string.Empty;
     private string _action = string.Empty;
+    private long? _limit;
+    private long? _offset;
 
     private StatementBuilder() { }
 
+    private StatementBuilder(StatementBuilder copy)
+    {        
+        _parts = new List<StatementPart>(copy._parts);
+        _from = copy._from;
+        _action = copy._action;
+        _limit = copy._limit;
+        _offset = copy._offset;
+        Part = copy.Part;
+    }
+    
     public static StatementBuilder SelectFrom(string from)
     {
         var builder = new StatementBuilder
@@ -25,6 +37,18 @@ public class StatementBuilder : BaseStatementPartBuilder<StatementBuilder, (stri
         _parts.Add(part);
         return this;
     }
+
+    public StatementBuilder WithLimit(long limit)
+    {
+        _limit = limit;
+        return this;
+    }
+
+    public StatementBuilder WithOffset(long offset)
+    {
+        _offset = offset;
+        return this;
+    }
     
     public StatementBuilder WithPart(Func<IStatementPartBuilder<StatementPartBuilder, StatementPart>, IStatementPartBuilder<StatementPartBuilder, StatementPart>> partFunc)
     {
@@ -33,14 +57,24 @@ public class StatementBuilder : BaseStatementPartBuilder<StatementBuilder, (stri
         return this;
     }
 
+    public (string query, DynamicParameters parameters) BuildCount()
+    {
+        var copy = new StatementBuilder(this);
+        copy._limit = null;
+        copy._offset = null;
+        var (innerQuery, parameters) = copy.Build();
+        var statement = $"SELECT COUNT(*) FROM ({innerQuery}) AS CountSubquery";
+        return (statement, parameters);
+    }
+
     public override (string query, DynamicParameters parameters) Build()
     {
-        var allColumnParts = _part.ColumnPart;
-        var allJoinParts = _part.JoinPart;
-        var allWhereParts = _part.WherePart;
-        var allHavingParts = _part.HavingPart;
-        var allOrderParts = _part.OrderPart;
-        var parameters = new DynamicParameters(_part.Parameters);
+        var allColumnParts = Part.ColumnPart;
+        var allJoinParts = Part.JoinPart;
+        var allWhereParts = Part.WherePart;
+        var allHavingParts = Part.HavingPart;
+        var allOrderParts = Part.OrderPart;
+        var parameters = new DynamicParameters(Part.Parameters);
         
         foreach (var part in _parts)
         {
@@ -67,7 +101,9 @@ public class StatementBuilder : BaseStatementPartBuilder<StatementBuilder, (stri
                         $"{(string.IsNullOrEmpty(allJoinParts) ? string.Empty : allJoinParts)} " +
                         $"{(string.IsNullOrEmpty(allWhereParts) ? string.Empty : "WHERE " + allWhereParts)} " +
                         $"{(string.IsNullOrEmpty(allHavingParts) ? string.Empty : "HAVING " + allHavingParts)} " +
-                        $"{(string.IsNullOrEmpty(allOrderParts) ? string.Empty : "ORDER BY " + allOrderParts)}";
+                        $"{(string.IsNullOrEmpty(allOrderParts) ? string.Empty : "ORDER BY " + allOrderParts)} " +
+                        $"{(_limit.HasValue ? "LIMIT " + _limit.Value : string.Empty)} " +
+                        $"{(_offset.HasValue ? "OFFSET " + _offset.Value : string.Empty)}";
         return (statement, parameters);
     }
 }
@@ -76,6 +112,6 @@ public class StatementPartBuilder : BaseStatementPartBuilder<StatementPartBuilde
 {
     public override StatementPart Build()
     {
-        return _part;
+        return Part;
     }
 }

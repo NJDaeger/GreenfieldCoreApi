@@ -409,8 +409,7 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
             searchFilter.DeletionFilter?.Users ?? [], searchFilter.DeletionFilter?.MatchType,
             searchFilter.UserAssignmentFilter?.Users ?? [], searchFilter.UserAssignmentFilter?.MatchType,
             searchFilter.RoleAssignmentFilter?.Roles ?? [], searchFilter.RoleAssignmentFilter?.MatchType,
-            searchFilter.MessageFilter?.Content ?? "", searchFilter.MessageFilter?.MatchType
-        );
+            searchFilter.MessageFilter?.Content ?? "", searchFilter.MessageFilter?.MatchType, searchFilter.ResultsPerPage, searchFilter.CurrentPage);
 
         if (!searchResult.TryGetDataNonNull(out var actualSearchResult))
             return Result<RedblockSearchResult>.Failure(searchResult.ErrorMessage ?? "Failed to search redblocks.", searchResult.StatusCode);
@@ -419,9 +418,7 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         return Result<RedblockSearchResult>.Success(new RedblockSearchResult
         {
             Results = mappedResults,
-            HasMore = actualSearchResult.HasMore,
-            NextCursorRedblockId = actualSearchResult.NextCursor,
-            ReturnedCount = mappedResults.Count
+            TotalResults = actualSearchResult.TotalResults
         });
     }
 

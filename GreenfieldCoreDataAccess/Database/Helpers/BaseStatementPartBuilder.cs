@@ -4,7 +4,7 @@ namespace GreenfieldCoreDataAccess.Database.Helpers;
 
 public abstract class BaseStatementPartBuilder<TBuilder, TBuilt> : IStatementPartBuilder<TBuilder, TBuilt> where TBuilder : BaseStatementPartBuilder<TBuilder, TBuilt>
 {
-    protected readonly StatementPart _part = new();
+    protected StatementPart Part = new();
     
     /// <summary>
     /// Sets the WHERE clause for the statement part.
@@ -13,7 +13,7 @@ public abstract class BaseStatementPartBuilder<TBuilder, TBuilt> : IStatementPar
     /// <returns></returns>
     public TBuilder Where(string? whereClause)
     {
-        _part.WherePart = whereClause;
+        Part.WherePart = whereClause;
         return (TBuilder)this;
     }
     
@@ -24,7 +24,7 @@ public abstract class BaseStatementPartBuilder<TBuilder, TBuilt> : IStatementPar
     /// <returns></returns>
     public TBuilder Join(string? joinClause)
     {
-        _part.JoinPart = joinClause;
+        Part.JoinPart = joinClause;
         return (TBuilder)this;
     }
     
@@ -35,7 +35,7 @@ public abstract class BaseStatementPartBuilder<TBuilder, TBuilt> : IStatementPar
     /// <returns></returns>
     public TBuilder OrderBy(string? orderClause)
     {
-        _part.OrderPart = orderClause;
+        Part.OrderPart = orderClause;
         return (TBuilder)this; }
     
     /// <summary>
@@ -45,7 +45,7 @@ public abstract class BaseStatementPartBuilder<TBuilder, TBuilt> : IStatementPar
     /// <returns></returns>
     public TBuilder Columns(string? columnClause)
     { 
-        _part.ColumnPart = columnClause;
+        Part.ColumnPart = columnClause;
         return (TBuilder)this;
     }
     
@@ -56,7 +56,7 @@ public abstract class BaseStatementPartBuilder<TBuilder, TBuilt> : IStatementPar
     /// <returns></returns>
     public TBuilder Having(string? havingClause)
     {
-        _part.HavingPart = havingClause;
+        Part.HavingPart = havingClause;
         return (TBuilder)this;
     }
     
@@ -68,7 +68,7 @@ public abstract class BaseStatementPartBuilder<TBuilder, TBuilt> : IStatementPar
     /// <returns></returns>
     public TBuilder WithParameter(string name, object value)
     {
-        _part.Parameters[name] = value;
+        Part.Parameters[name] = value;
         return (TBuilder)this;
     }
 
@@ -80,7 +80,7 @@ public abstract class BaseStatementPartBuilder<TBuilder, TBuilt> : IStatementPar
     /// <returns></returns>
     public TBuilder WithIndexedParameter(string name, object value)
     {
-        _part.Parameters[name + _part.Parameters.Count] = value;
+        Part.Parameters[name + Part.Parameters.Count] = value;
         return (TBuilder)this;
     }
     

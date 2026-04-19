@@ -123,7 +123,7 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
         }
     }
 
-    public async Task<Result<(IEnumerable<RedblockWithLatestStatusEntity> Redblocks, bool HasMore, long? NextCursor)>>
+    public async Task<Result<(IEnumerable<RedblockWithLatestStatusEntity> Redblocks, long TotalResults)>>
         SelectRedblocksByProject(long projectId,
             Location? location,
             long? radius,
@@ -131,36 +131,39 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
             List<long> deletionUserIds, string? deletionFilterMatchType,
             List<long> userAssignmentUserIds, string? userAssignmentFilterMatchType,
             List<string> roleAssignmentRoleNames, string? roleAssignmentFilterMatchType,
-            string messageFilter, string? messageFilterMatchType)
+            string messageFilter, string? messageFilterMatchType,
+            int resultsPerPage, long currentPage)
     {
         try
         {
             var statementBuilder = StatementBuilder
                 .SelectFrom("`Redblocks.Redblocks` rb")
                 .Columns("""
-                            rb.RedblockId
-                            ,rb.ProjectId 
-                            ,rb.KeyNumber
-                            ,rb.Message
-                            ,rs_ranked.Status
-                            ,rb.X
-                            ,rb.Y
-                            ,rb.Z
-                            ,rb.CreatedBy
-                            ,rb.CreatedOn
-                            ,rb.UpdatedBy
-                            ,rb.UpdatedOn
-                            ,rb.DeletedBy
-                            ,rb.DeletedOn
-                            """)
+                         rb.RedblockId
+                         ,rb.ProjectId 
+                         ,rb.KeyNumber
+                         ,rb.Message
+                         ,rs_ranked.Status
+                         ,rb.X
+                         ,rb.Y
+                         ,rb.Z
+                         ,rb.CreatedBy
+                         ,rb.CreatedOn
+                         ,rb.UpdatedBy
+                         ,rb.UpdatedOn
+                         ,rb.DeletedBy
+                         ,rb.DeletedOn
+                         """)
                 .Join("""
-                          inner join (
-                            select rs.*, ROW_NUMBER() over (partition by rs.RedblockId order by rs.StatusId desc) as StatusNumber
-                            from `Redblocks.Statuses` rs
-                          ) rs_ranked on rb.RedblockId = rs_ranked.RedblockId and rs_ranked.StatusNumber = 1
-                        """)
+                        inner join (
+                          select rs.*, ROW_NUMBER() over (partition by rs.RedblockId order by rs.StatusId desc) as StatusNumber
+                          from `Redblocks.Statuses` rs
+                        ) rs_ranked on rb.RedblockId = rs_ranked.RedblockId and rs_ranked.StatusNumber = 1
+                      """)
                 .WithParameter("@ProjectId", projectId)
-                .Where("rb.ProjectId = @ProjectId");
+                .Where("rb.ProjectId = @ProjectId")
+                .WithLimit(resultsPerPage)
+                .WithOffset(resultsPerPage * (currentPage - 1));
 
             var statusStatementPart = BuildStatusStatementParts(statuses, statusFilterMatchType);
             if (statusStatementPart != null) statementBuilder.WithPart(statusStatementPart);
@@ -180,15 +183,18 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
             var spatialStatementPart = BuildSpatialStatementParts(location, radius);
             if (spatialStatementPart != null) statementBuilder.WithPart(spatialStatementPart);
 
-            var statement = statementBuilder.Build();
-            var redblocks = await Connection.QueryAsync<RedblockWithLatestStatusEntity>(statement.query, statement.parameters, Transaction);
+            var countStatement = statementBuilder.BuildCount();
+            var totalResults = await Connection.ExecuteScalarAsync<long>(countStatement.query, countStatement.parameters, Transaction);
             
-            return Result<(IEnumerable<RedblockWithLatestStatusEntity> redblocks, bool hasMore, long? nextCursor)>.Success((redblocks, false, null)); //pagination not implemented, so hasMore is always false and nextCursor is always null
+            var statement = statementBuilder.Build();
+            var redblocks = (await Connection.QueryAsync<RedblockWithLatestStatusEntity>(statement.query, statement.parameters, Transaction)).ToList();
+            
+            return Result<(IEnumerable<RedblockWithLatestStatusEntity> Redblocks, long TotalResults)>.Success((redblocks, totalResults));
         }
         catch (DbException ex)
         {
             logger.LogDebug("{ErrorMessage}", ex.Message);
-            return Result<(IEnumerable<RedblockWithLatestStatusEntity> redblocks, bool hasMore, long? nextCursor)>.Failure($"Failed to select redblocks: {ex.Message}", HttpStatusCode.InternalServerError);
+            return Result<(IEnumerable<RedblockWithLatestStatusEntity> Redblocks, long TotalResults)>.Failure($"Failed to select redblocks: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
