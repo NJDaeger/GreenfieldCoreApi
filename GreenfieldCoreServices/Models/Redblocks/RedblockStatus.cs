@@ -4,8 +4,6 @@ namespace GreenfieldCoreServices.Models.Redblocks;
 
 public record RedblockStatus(
     long StatusId,
-    long ProjectId,
-    long KeyNumber,
     long RedblockId,
     string Status,
     long CreatedBy,
@@ -15,8 +13,6 @@ public record RedblockStatus(
     {
         return new RedblockStatus(
             from.StatusId,
-            from.ProjectId,
-            from.KeyNumber,
             from.RedblockId,
             from.Status,
             from.CreatedBy,

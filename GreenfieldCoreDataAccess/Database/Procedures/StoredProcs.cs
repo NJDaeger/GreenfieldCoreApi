@@ -689,20 +689,6 @@ public static class StoredProcs
         });
 
         /// <summary>
-        /// Selects redblocks in a project with optional filters.
-        /// </summary>
-        public static readonly ParameterizedQueryProcedure<RedblockEntity, (long projectId, string? statusFilter, string? deletionFilter, string? userAssignmentFilter, string? roleAssignmentFilter, string? messageFilter)> SelectRedblocksByProject = new("`Redblocks.usp_SelectRedblocksByProject`", (args, parms) =>
-        {
-            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
-            parms.Add("p_StatusFilter", args.statusFilter, DbType.String, size: 8192);
-            parms.Add("p_DeletionFilter", args.deletionFilter, DbType.String, size: 8192);
-            parms.Add("p_UserAssignmentFilter", args.userAssignmentFilter, DbType.String, size: 8192);
-            parms.Add("p_RoleAssignmentFilter", args.roleAssignmentFilter, DbType.String, size: 8192);
-            parms.Add("p_MessageFilter", args.messageFilter, DbType.String, size: 2048);
-            return parms;
-        });
-
-        /// <summary>
         /// Selects status rows for a redblock by internal ID.
         /// </summary>
         public static readonly ParameterizedQueryProcedure<RedblockStatusEntity, long> SelectRedblockStatuses = new("`Redblocks.usp_SelectRedblockStatuses`", (redblockId, parms) =>
@@ -730,9 +716,18 @@ public static class StoredProcs
         });
 
         /// <summary>
+        /// Selects entity GUID mappings for a redblock by internal ID.
+        /// </summary>
+        public static readonly ParameterizedQueryProcedure<Guid, long> SelectRedblockEntities = new("`Redblocks.usp_SelectRedblockEntities`", (redblockId, parms) =>
+        {
+            parms.Add("p_RedblockId", redblockId, DbType.Int64);
+            return parms;
+        });
+
+        /// <summary>
         /// Updates a redblock message.
         /// </summary>
-        public static readonly ParameterizedQuerySingleProcedure<RedblockEntity?, (long projectId, long keyNumber, string message, long updatedBy)> UpdateRedblockMessage = new("`Redblocks.usp_UpdateRedblockMessage`", (args, parms) =>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockWithLatestStatusEntity?, (long projectId, long keyNumber, string message, long updatedBy)> UpdateRedblockMessage = new("`Redblocks.usp_UpdateRedblockMessage`", (args, parms) =>
         {
             parms.Add("p_ProjectId", args.projectId, DbType.Int64);
             parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
@@ -744,7 +739,7 @@ public static class StoredProcs
         /// <summary>
         /// Soft deletes a redblock.
         /// </summary>
-        public static readonly ParameterizedQuerySingleProcedure<RedblockEntity?, (long projectId, long keyNumber, long deletedBy)> SoftDeleteRedblock = new("`Redblocks.usp_SoftDeleteRedblock`", (args, parms) =>
+        public static readonly ParameterizedQuerySingleProcedure<RedblockWithLatestStatusEntity?, (long projectId, long keyNumber, long deletedBy)> SoftDeleteRedblock = new("`Redblocks.usp_SoftDeleteRedblock`", (args, parms) =>
         {
             parms.Add("p_ProjectId", args.projectId, DbType.Int64);
             parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
@@ -807,6 +802,27 @@ public static class StoredProcs
             parms.Add("p_ProjectId", args.projectId, DbType.Int64);
             parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
             parms.Add("p_RoleName", args.roleName, DbType.String, size: 32);
+            return parms;
+        });
+
+        /// <summary>
+        /// Inserts an entity GUID mapping for a redblock.
+        /// </summary>
+        public static readonly ParameterizedQuerySingleProcedure<Guid?, (long projectId, long keyNumber, Guid entityGuid)> InsertRedblockEntity = new("`Redblocks.usp_InsertRedblockEntity`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
+            parms.Add("p_EntityGuid", args.entityGuid, DbType.Guid);
+            return parms;
+        });
+
+        /// <summary>
+        /// Deletes all entity GUID mappings for a redblock.
+        /// </summary>
+        public static readonly ParameterizedProcedure<(long projectId, long keyNumber)> DeleteRedblockEntities = new("`Redblocks.usp_DeleteRedblockEntities`", (args, parms) =>
+        {
+            parms.Add("p_ProjectId", args.projectId, DbType.Int64);
+            parms.Add("p_KeyNumber", args.keyNumber, DbType.Int64);
             return parms;
         });
     }

@@ -22,6 +22,7 @@ public class Redblock : IModelConvertable<RedblockEntity, Redblock>
     public List<RedblockStatus> Statuses { get; set; } = [];
     public List<RedblockUserAssignment> UserAssignments { get; set; } = [];
     public List<RedblockRoleAssignment> RoleAssignments { get; set; } = [];
+    public List<Guid> Entities { get; set; } = [];
 
     public static Redblock FromModel(RedblockEntity from)
     {

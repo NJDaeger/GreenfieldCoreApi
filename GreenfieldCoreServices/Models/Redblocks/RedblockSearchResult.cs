@@ -48,8 +48,13 @@ public class SearchedRedblockResult : IModelConvertable<RedblockWithLatestStatus
     public DateTime? UpdatedOn { get; set; }
     public long? DeletedBy { get; set; }
     public DateTime? DeletedOn { get; set; }
-    public decimal? DistanceSquared { get; set; }
-    
+
+    public double? Distance
+    {
+        get => field is null ? null : Math.Sqrt(field.Value);
+        set;
+    }
+
     public static SearchedRedblockResult FromModel(RedblockWithLatestStatusEntity from)
     {
         return new SearchedRedblockResult
@@ -68,7 +73,7 @@ public class SearchedRedblockResult : IModelConvertable<RedblockWithLatestStatus
             UpdatedOn = from.UpdatedOn,
             DeletedBy = from.DeletedBy,
             DeletedOn = from.DeletedOn,
-            DistanceSquared = from.DistanceSquared
+            Distance = from.DistanceSquared
         };
     }
 }

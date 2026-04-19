@@ -4,6 +4,7 @@ using GreenfieldCoreApi.ApiModels.Connections;
 using GreenfieldCoreServices.Models.BuildApps;
 using GreenfieldCoreServices.Models.Connections.Discord;
 using GreenfieldCoreServices.Models.Connections.Patreon;
+using GreenfieldCoreServices.Models.Users;
 using GreenfieldCoreServices.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -72,6 +73,22 @@ public class UserController(IUserService userService, IPatreonService patreonSer
         return CreatedAtAction(nameof(GetUserByUuid), new { version = HttpContext.GetRequestedApiVersion()?.ToString(), minecraftUuid = created.MinecraftUuid }, created);
     }
     
+    [HttpPost("bulk")]
+    [Authorize(Roles = "Users.Write,Users")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [Produces(typeof(BulkImportUsersResult))]
+    public async Task<IActionResult> BulkImportUsers([FromBody] BulkImportUsersRequest request)
+    {
+        var importResult = await userService.BulkImportUsers(request.Users.Select(entry => new BulkImportUserEntry
+        {
+            Uuid = entry.Uuid,
+            Username = entry.Username
+        }));
+        return !importResult.TryGetDataNonNull(out var data) 
+            ? Problem(statusCode: importResult.GetStatusCodeInt(), detail: importResult.ErrorMessage) 
+            : Ok(data);
+    }
+
     [HttpGet("{userId:long}/applications")]
     [Authorize(Roles = "Users.Read.Applications,Users.Applications")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -109,7 +126,7 @@ public class UserController(IUserService userService, IPatreonService patreonSer
         if (!userResult.TryGetDataNonNull(out var user))
             return Problem(statusCode: userResult.GetStatusCodeInt(), detail: userResult.ErrorMessage);
         
-        var userDiscordConnectionsResult = await discordService.GetUserDiscordConnections(userId);;
+        var userDiscordConnectionsResult = await discordService.GetUserDiscordConnections(userId);
         if (!userDiscordConnectionsResult.TryGetDataNonNull(out var userDiscordConnectionsEnum))
             return Problem(statusCode: userDiscordConnectionsResult.GetStatusCodeInt(), detail: userDiscordConnectionsResult.ErrorMessage);
         

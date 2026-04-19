@@ -155,7 +155,7 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
                             """)
                 .Join("""
                           inner join (
-                            select rs.*, ROW_NUMBER() over (partition by rs.RedblockId order by rs.CreatedOn desc) as StatusNumber
+                            select rs.*, ROW_NUMBER() over (partition by rs.RedblockId order by rs.StatusId desc) as StatusNumber
                             from `Redblocks.Statuses` rs
                           ) rs_ranked on rb.RedblockId = rs_ranked.RedblockId and rs_ranked.StatusNumber = 1
                         """)
@@ -421,6 +421,20 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
         }
     }
 
+    public async Task<Result<IEnumerable<Guid>>> SelectRedblockEntities(long redblockId)
+    {
+        try
+        {
+            var result = await Connection.QueryProcedure(StoredProcs.Redblocks.SelectRedblockEntities, redblockId, Transaction);
+            return Result<IEnumerable<Guid>>.Success(result);
+        }
+        catch (DbException ex)
+        {
+            logger.LogDebug("{ErrorMessage}", ex.Message);
+            return Result<IEnumerable<Guid>>.Failure($"Failed to select redblock entities: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
     public async Task<Result<RedblockEntity>> UpdateRedblockMessage(long projectId, long keyNumber, string message, long updatedBy)
     {
         try
@@ -530,6 +544,36 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
         {
             logger.LogDebug("{ErrorMessage}", ex.Message);
             return Result.Failure($"Failed to delete redblock role assignment: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
+    public async Task<Result> InsertRedblockEntity(long projectId, long keyNumber, Guid entityGuid)
+    {
+        try
+        {
+            var result = await Connection.QuerySingleProcedure(StoredProcs.Redblocks.InsertRedblockEntity, (projectId, keyNumber, entityGuid), Transaction);
+            return result is null
+                ? Result.Failure("Failed to insert redblock entity mapping: No mapping returned from database.", HttpStatusCode.InternalServerError)
+                : Result.Success();
+        }
+        catch (DbException ex)
+        {
+            logger.LogDebug("{ErrorMessage}", ex.Message);
+            return Result.Failure($"Failed to insert redblock entity mapping: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
+    public async Task<Result> DeleteRedblockEntities(long projectId, long keyNumber)
+    {
+        try
+        {
+            await Connection.ExecuteProcedure(StoredProcs.Redblocks.DeleteRedblockEntities, (projectId, keyNumber), Transaction);
+            return Result.Success();
+        }
+        catch (DbException ex)
+        {
+            logger.LogDebug("{ErrorMessage}", ex.Message);
+            return Result.Failure($"Failed to delete redblock entities: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 }

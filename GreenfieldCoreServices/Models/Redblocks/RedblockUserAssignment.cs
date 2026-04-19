@@ -4,8 +4,6 @@ namespace GreenfieldCoreServices.Models.Redblocks;
 
 public record RedblockUserAssignment(
     long UserAssignmentId,
-    long ProjectId,
-    long KeyNumber,
     long RedblockId,
     long AssignedTo,
     long CreatedBy,
@@ -15,8 +13,6 @@ public record RedblockUserAssignment(
     {
         return new RedblockUserAssignment(
             from.UserAssignmentId,
-            from.ProjectId,
-            from.KeyNumber,
             from.RedblockId,
             from.AssignedTo,
             from.CreatedBy,

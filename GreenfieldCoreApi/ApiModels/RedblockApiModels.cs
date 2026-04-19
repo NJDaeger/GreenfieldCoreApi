@@ -51,3 +51,9 @@ public class AssignRoleRequest
     public required string RoleName { get; set; }
     public required long CreatedBy { get; set; }
 }
+
+public class ReplaceRedblockEntitiesRequest
+{
+    public required List<Guid> Entities { get; init; } = [];
+}
+

@@ -66,7 +66,7 @@ public class StatusFilter
     /// <summary>
     /// How to match a redblock with a status. Supported options are "or" or "not"
     /// </summary>
-    public required string MatchType;
+    public required string MatchType { get; set; }
 }
 
 /// <summary>

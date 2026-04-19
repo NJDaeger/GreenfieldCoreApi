@@ -125,6 +125,13 @@ public interface IRedblockRepository
     Task<Result<IEnumerable<RedblockRoleAssignmentEntity>>> SelectRedblockRoleAssignments(long redblockId);
 
     /// <summary>
+    /// Get all entity GUID mappings for a Redblock by its internal Redblock ID.
+    /// </summary>
+    /// <param name="redblockId">The internal Redblock ID.</param>
+    /// <returns>Result containing the GUIDs of the entities associated with the Redblock.</returns>
+    Task<Result<IEnumerable<Guid>>> SelectRedblockEntities(long redblockId);
+
+    /// <summary>
     /// Update a Redblock's message.
     /// </summary>
     /// <param name="projectId">The project ID that the Redblock belongs to.</param>
@@ -190,5 +197,22 @@ public interface IRedblockRepository
     /// <param name="roleName">The role name whose assignment should be removed.</param>
     /// <returns>Result indicating whether a role assignment was removed.</returns>
     Task<Result> DeleteRoleAssignment(long projectId, long keyNumber, string roleName);
+
+    /// <summary>
+    /// Add an entity GUID mapping to a Redblock.
+    /// </summary>
+    /// <param name="projectId">The project ID that the Redblock belongs to.</param>
+    /// <param name="keyNumber">The Redblock key number within the project.</param>
+    /// <param name="entityGuid">The entity GUID to associate with the Redblock.</param>
+    /// <returns>Result indicating whether the operation succeeded.</returns>
+    Task<Result> InsertRedblockEntity(long projectId, long keyNumber, Guid entityGuid);
+
+    /// <summary>
+    /// Remove all entity GUID mappings from a Redblock.
+    /// </summary>
+    /// <param name="projectId">The project ID that the Redblock belongs to.</param>
+    /// <param name="keyNumber">The Redblock key number within the project.</param>
+    /// <returns>Result indicating whether the operation succeeded.</returns>
+    Task<Result> DeleteRedblockEntities(long projectId, long keyNumber);
 }
 

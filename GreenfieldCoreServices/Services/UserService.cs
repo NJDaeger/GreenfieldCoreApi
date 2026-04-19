@@ -26,6 +26,65 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache) :
         return Result<User>.Success(createdUser);
     }
 
+    public async Task<Result<BulkImportUsersResult>> BulkImportUsers(IEnumerable<BulkImportUserEntry> users)
+    {
+        var created = new List<Guid>();
+        var skipped = new List<BulkImportUserSkipped>();
+        var seenUuids = new HashSet<Guid>();
+        var repo = uow.Repository<IUserRepository>();
+
+        try
+        {
+            uow.BeginTransaction();
+
+            foreach (var entry in users)
+            {
+                if (!seenUuids.Add(entry.Uuid))
+                {
+                    skipped.Add(new BulkImportUserSkipped { Uuid = entry.Uuid, Reason = "Duplicate UUID in request." });
+                    continue;
+                }
+
+                if (!IsValidUsername(entry.Username))
+                {
+                    skipped.Add(new BulkImportUserSkipped { Uuid = entry.Uuid, Reason = "A valid username must be provided." });
+                    continue;
+                }
+
+                var createResult = await repo.CreateUser(entry.Uuid, entry.Username);
+                if (!createResult.IsSuccessful)
+                {
+                    skipped.Add(new BulkImportUserSkipped { Uuid = entry.Uuid, Reason = createResult.ErrorMessage ?? "Unknown error." });
+                    continue;
+                }
+
+                var createdEntity = createResult.Data;
+                if (createdEntity is null)
+                {
+                    skipped.Add(new BulkImportUserSkipped { Uuid = entry.Uuid, Reason = "User already exists." });
+                    continue;
+                }
+
+                var createdUser = User.FromModel(createdEntity);
+                created.Add(entry.Uuid);
+                userCache.SetValue(createdUser.UserId, createdUser);
+            }
+
+            uow.CompleteAndCommit();
+            return Result<BulkImportUsersResult>.Success(new BulkImportUsersResult
+            {
+                Created = created,
+                Skipped = skipped
+            });
+        }
+        catch (Exception ex)
+        {
+            if (uow.HasActiveTransaction)
+                uow.Rollback();
+            return Result<BulkImportUsersResult>.Failure($"Failed to bulk import users: {ex.Message}", HttpStatusCode.InternalServerError);
+        }
+    }
+
     public async Task<Result<User>> GetUserByUuid(Guid minecraftUuid)
     {
         if (userCache.TryGetValue(u => u.MinecraftUuid == minecraftUuid, out var cachedUser))
@@ -67,7 +126,12 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache) :
         userCache.SetValue(existingUser.UserId, existingUser);
         return Result<User>.Success(existingUser);
     }
-    
+
+    public Task<Result<User>> GetSystemUser()
+    {
+        return GetUserByUuid(Guid.Empty);
+    }
+
     private bool IsValidUsername(string username)
     {
         if (string.IsNullOrWhiteSpace(username)) return false;

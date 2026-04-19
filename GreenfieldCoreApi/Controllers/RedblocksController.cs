@@ -101,6 +101,25 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     #region Redblock Routes
 
     /// <summary>
+    /// Imports redblocks in bulk using the external import payload format.
+    /// </summary>
+    /// <param name="request">The bulk import payload.</param>
+    /// <returns>A placeholder response until business logic is implemented.</returns>
+    [HttpPost("bulk")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    public async Task<IActionResult> BulkImportRedblocks([FromBody] BulkImportRedblocksRequest request)
+    {
+        var importResult = await redblockService.BulkImportRedblocks(request);
+        if (!importResult.TryGetDataNonNull(out var importData))
+            return Problem(statusCode: importResult.GetStatusCodeInt(), detail: importResult.ErrorMessage);
+
+        var errors = importData.Errors.ToList();
+        return errors.Count == 0
+            ? Ok("Bulk import completed successfully with no errors.")
+            : Ok(new { Message = "Bulk import completed with some errors.", Errors = errors });
+    }
+
+    /// <summary>
     /// Searches for redblocks in a project with optional filters, returning paginated results as lightweight identifiers.
     /// </summary>
     /// <param name="projectKey">The unique Key of the redblock project.</param>
@@ -112,21 +131,19 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces(typeof(RedblockSearchResult))]
-    public async Task<IActionResult> SearchRedblocks([FromRoute] string projectKey, [FromBody] RedblockSearchRequest? searchFilter = null)
+    public async Task<IActionResult> SearchRedblocks([FromRoute] string projectKey, [FromBody] RedblockSearchRequest searchFilter)
     {
         var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
         if (!projectKeyResult.TryGetDataNonNull(out var project))
             return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
-
-        var filter = searchFilter ?? new RedblockSearchRequest();
         
         // Validate PageSize
-        if (filter.PageSize < 1)
+        if (searchFilter.PageSize < 1)
             return BadRequest("PageSize must be at least 1.");
-        if (filter.PageSize > 500)
+        if (searchFilter.PageSize > 500)
             return BadRequest("PageSize cannot exceed 500.");
 
-        var redblocksResult = await redblockService.GetRedblocksByProject(project.ProjectId, filter);
+        var redblocksResult = await redblockService.GetRedblocksByProject(project.ProjectId, searchFilter);
         return redblocksResult.IsSuccessful
             ? Ok(redblocksResult.GetNonNullOrThrow())
             : Problem(statusCode: redblocksResult.GetStatusCodeInt(), detail: redblocksResult.ErrorMessage);
@@ -218,6 +235,52 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
         return updateResult.IsSuccessful
             ? Ok()
             : Problem(statusCode: updateResult.GetStatusCodeInt(), detail: updateResult.ErrorMessage);
+    }
+
+    /// <summary>
+    /// Replaces all associated entity GUIDs for a specific redblock.
+    /// </summary>
+    /// <param name="projectKey">The key of the project.</param>
+    /// <param name="keyNumber">The unique key of the redblock.</param>
+    /// <param name="request">The request containing the full set of entity GUIDs.</param>
+    /// <returns>The persisted list of associated entity GUIDs.</returns>
+    [HttpPut("{projectKey:regex(\\D+)}/{keyNumber:long}/entities")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Produces(typeof(List<Guid>))]
+    public async Task<IActionResult> ReplaceRedblockEntities([FromRoute] string projectKey, [FromRoute] long keyNumber, [FromBody] ReplaceRedblockEntitiesRequest request)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+
+        var replaceResult = await redblockService.ReplaceRedblockEntities(project.ProjectId, keyNumber, request.Entities);
+        return replaceResult.IsSuccessful
+            ? Ok(replaceResult.GetNonNullOrThrow())
+            : Problem(statusCode: replaceResult.GetStatusCodeInt(), detail: replaceResult.ErrorMessage);
+    }
+
+    /// <summary>
+    /// Removes all associated entity GUIDs for a specific redblock.
+    /// </summary>
+    /// <param name="projectKey">The key of the project.</param>
+    /// <param name="keyNumber">The unique key of the redblock.</param>
+    /// <returns>The result of the clear operation.</returns>
+    [HttpDelete("{projectKey:regex(\\D+)}/{keyNumber:long}/entities")]
+    [Authorize(Roles = "Redblocks.Write,Redblocks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ClearRedblockEntities([FromRoute] string projectKey, [FromRoute] long keyNumber)
+    {
+        var projectKeyResult = await redblockService.GetProjectByKey(projectKey);
+        if (!projectKeyResult.TryGetDataNonNull(out var project))
+            return Problem(statusCode: projectKeyResult.GetStatusCodeInt(), detail: projectKeyResult.ErrorMessage);
+
+        var clearResult = await redblockService.ClearRedblockEntities(project.ProjectId, keyNumber);
+        return clearResult.IsSuccessful
+            ? Ok()
+            : Problem(statusCode: clearResult.GetStatusCodeInt(), detail: clearResult.ErrorMessage);
     }
     
     /// <summary>

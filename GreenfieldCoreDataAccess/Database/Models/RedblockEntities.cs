@@ -21,12 +21,32 @@ public record RedblockEntity(
     long? DeletedBy,
     DateTime? DeletedOn);
 
-public record RedblockWithLatestStatusEntity(long RedblockId, long ProjectId, long KeyNumber, string Message, string Status, int X, int Y, int Z, long CreatedBy, DateTime CreatedOn, long? UpdatedBy, DateTime? UpdatedOn, long? DeletedBy, DateTime? DeletedOn, decimal? DistanceSquared) : RedblockEntity(RedblockId, ProjectId, KeyNumber, Message, X, Y, Z, CreatedBy, CreatedOn, UpdatedBy, UpdatedOn, DeletedBy, DeletedOn);
+public record RedblockWithLatestStatusEntity : RedblockEntity
+{
+    
+    public string Status { get; set; }
+    public double? DistanceSquared { get; set; }
+
+    public RedblockWithLatestStatusEntity(long redblockId, long projectId, long keyNumber, string message,
+        string status, int x, int y, int z, long createdBy, DateTime createdOn, long? updatedBy, DateTime? updatedOn,
+        long? deletedBy, DateTime? deletedOn) : base(redblockId, projectId, keyNumber, message, x, y, z, createdBy,
+        createdOn, updatedBy, updatedOn, deletedBy, deletedOn)
+    {
+        Status = status;
+    }
+    
+    public RedblockWithLatestStatusEntity(long redblockId, long projectId, long keyNumber, string message,
+        string status, int x, int y, int z, long createdBy, DateTime createdOn, long? updatedBy, DateTime? updatedOn,
+        long? deletedBy, DateTime? deletedOn, double? distanceSquared) : base(redblockId, projectId, keyNumber, message, x, y, z, createdBy,
+        createdOn, updatedBy, updatedOn, deletedBy, deletedOn)
+    {
+        Status = status;
+        DistanceSquared = distanceSquared;
+    }
+}
 
 public record RedblockStatusEntity(
     long StatusId,
-    long ProjectId,
-    long KeyNumber,
     long RedblockId,
     string Status,
     long CreatedBy,
@@ -34,8 +54,6 @@ public record RedblockStatusEntity(
 
 public record RedblockUserAssignmentEntity(
     long UserAssignmentId,
-    long ProjectId,
-    long KeyNumber,
     long RedblockId,
     long AssignedTo,
     long CreatedBy,
@@ -43,8 +61,6 @@ public record RedblockUserAssignmentEntity(
 
 public record RedblockRoleAssignmentEntity(
     long RoleAssignmentId,
-    long ProjectId,
-    long KeyNumber,
     long RedblockId,
     string RoleName,
     long CreatedBy,

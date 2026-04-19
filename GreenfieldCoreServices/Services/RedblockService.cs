@@ -1,13 +1,258 @@
+using System.Collections.Concurrent;
 using GreenfieldCoreDataAccess.Database.Repositories.Interfaces;
 using GreenfieldCoreDataAccess.Database.UnitOfWork;
 using GreenfieldCoreServices.Models.Redblocks;
+using GreenfieldCoreServices.Models.Users;
 using GreenfieldCoreServices.Services.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace GreenfieldCoreServices.Services;
 
-public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger) : IRedblockService
+public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, IUserService userService, IServiceScopeFactory scopeFactory) : IRedblockService
 {
+    public async Task<Result<BulkImportRedblocksResult>> BulkImportRedblocks(BulkImportRedblocksRequest request)
+    {
+        const int maxParallelFollowupWorkers = 16;
+        const int maxQueuedFollowupTasks = 128;
+
+        var projectMap = new Dictionary<string, RedblockProject>();
+        foreach (var worldProject in request.WorldProjects)
+        {
+            var projectResult = await GetProjectByKey(worldProject.Value.ProjectKey);
+            if (!projectResult.TryGetDataNonNull(out var project))
+            {
+                var creationResult = await CreateProject(worldProject.Value.ProjectName, worldProject.Value.ProjectKey);
+                if (!creationResult.TryGetDataNonNull(out project))
+                {
+                    return Result<BulkImportRedblocksResult>.Failure(
+                        $"Failed to create project for world {worldProject.Key}: {creationResult.ErrorMessage}",
+                        creationResult.StatusCode);
+                }
+            }
+
+            projectMap[worldProject.Key] = project;
+        }
+
+        var systemUserResult = await userService.GetSystemUser();
+        if (!systemUserResult.TryGetDataNonNull(out var systemUser))
+            return Result<BulkImportRedblocksResult>.Failure(systemUserResult.ErrorMessage ?? "System user does not exist.", systemUserResult.StatusCode);
+
+        var migrationIssues = new ConcurrentBag<string>();
+        
+        var repo = uow.Repository<IRedblockRepository>();
+        var followupTaskSemaphore = new SemaphoreSlim(maxParallelFollowupWorkers);
+        var pendingFollowupTasks = new List<Task>();
+
+        foreach (var legacyRedblock in request.Redblocks)
+        {
+            if (!projectMap.TryGetValue(legacyRedblock.Value.Location.World, out var associatedProject))
+            {
+                migrationIssues.Add($"Redblock {legacyRedblock.Key} references world {legacyRedblock.Value.Location.World} which does not have an associated project in the import payload.");
+                continue;
+            }
+
+            User? foundAssignedUser = null;
+            if (legacyRedblock.Value.AssignedTo.HasValue)
+            {
+                var assignedToUser = legacyRedblock.Value.AssignedTo.Value;
+                var assignedToUserResult = await userService.GetUserByUuid(assignedToUser);
+                if (!assignedToUserResult.TryGetDataNonNull(out foundAssignedUser))
+                {
+                    migrationIssues.Add($"Redblock {legacyRedblock.Key} is assigned to user {assignedToUser} who could not be found in the system.");
+                }
+            }
+
+            var createdByUser = legacyRedblock.Value.CreatedBy;
+            var foundCreatedByUserResult = await userService.GetUserByUuid(createdByUser);
+            if (!foundCreatedByUserResult.TryGetDataNonNull(out var foundCreatedByUser))
+            {
+                migrationIssues.Add($"Redblock {legacyRedblock.Key} was created by user {createdByUser} who could not be found in the system.");
+                foundCreatedByUser = systemUser;
+            }
+
+            var statuses = new List<(string Status, long CreatedByUserId)> { ("Incomplete", foundCreatedByUser.UserId) };
+
+            if (legacyRedblock.Value.CompletedBy.HasValue)
+            {
+                var pendingByUser = legacyRedblock.Value.CompletedBy.Value;
+                var pendingByUserResult = await userService.GetUserByUuid(pendingByUser);
+                if (!pendingByUserResult.TryGetDataNonNull(out var foundPendingByUser))
+                {
+                    migrationIssues.Add($"Redblock {legacyRedblock.Key} is pending completion by user {pendingByUser} who could not be found in the system.");
+                    foundPendingByUser = systemUser;
+                }
+
+                statuses.Add(("Pending", foundPendingByUser.UserId));
+            }
+
+            if (legacyRedblock.Value.ApprovedBy.HasValue)
+            {
+                var approvedByUser = legacyRedblock.Value.ApprovedBy.Value;
+                var approvedByUserResult = await userService.GetUserByUuid(approvedByUser);
+                if (!approvedByUserResult.TryGetDataNonNull(out var foundApprovedByUser))
+                {
+                    migrationIssues.Add($"Redblock {legacyRedblock.Key} is approved by user {approvedByUser} who could not be found in the system.");
+                    foundApprovedByUser = systemUser;
+                }
+
+                statuses.Add(("Approved", foundApprovedByUser.UserId));
+            }
+
+            var role = legacyRedblock.Value.MinRank;
+            var isDeleted = legacyRedblock.Value.Status.Equals("Deleted", StringComparison.OrdinalIgnoreCase);
+            var entities = legacyRedblock.Value.Armorstands ?? [];
+
+            BulkImportFollowupWorkItem followupWorkItem;
+            try
+            {
+                uow.BeginTransaction();
+
+                var redblockInsertResult = await repo.InsertRedblock(
+                    associatedProject.ProjectId,
+                    legacyRedblock.Value.Content,
+                    (int)legacyRedblock.Value.Location.X,
+                    (int)legacyRedblock.Value.Location.Y,
+                    (int)legacyRedblock.Value.Location.Z,
+                    foundCreatedByUser.UserId);
+
+                if (!redblockInsertResult.TryGetDataNonNull(out var redblockEntity))
+                {
+                    migrationIssues.Add($"Failed to create redblock for legacy redblock {legacyRedblock.Key}: {redblockInsertResult.ErrorMessage}");
+                    uow.Rollback();
+                    continue;
+                }
+
+                uow.CompleteAndCommit();
+
+                followupWorkItem = new BulkImportFollowupWorkItem
+                {
+                    LegacyRedblockKey = legacyRedblock.Key,
+                    ProjectId = associatedProject.ProjectId,
+                    RedblockId = redblockEntity.RedblockId,
+                    RedblockKeyNumber = redblockEntity.KeyNumber,
+                    CreatedByUserId = foundCreatedByUser.UserId,
+                    AssignedUserId = foundAssignedUser?.UserId,
+                    AssignedUsername = foundAssignedUser?.Username,
+                    Role = role,
+                    Entities = entities,
+                    Statuses = statuses,
+                    IsDeleted = isDeleted,
+                    SystemUserId = systemUser.UserId
+                };
+            }
+            catch (Exception ex)
+            {
+                if (uow.HasActiveTransaction)
+                    uow.Rollback();
+
+                migrationIssues.Add($"Unexpected failure while creating base redblock for legacy redblock {legacyRedblock.Key}: {ex.Message}");
+                continue;
+            }
+            
+            pendingFollowupTasks.Add(ProcessFollowupWithThrottle(followupWorkItem, migrationIssues, followupTaskSemaphore));
+            logger.LogInformation("Current followup task count {Count}", pendingFollowupTasks.Count);
+            if (pendingFollowupTasks.Count < maxQueuedFollowupTasks)
+                continue;
+
+            var completedTask = await Task.WhenAny(pendingFollowupTasks);
+            pendingFollowupTasks.Remove(completedTask);
+            await completedTask;
+        }
+
+        await Task.WhenAll(pendingFollowupTasks);
+
+        return Result<BulkImportRedblocksResult>.Success(new BulkImportRedblocksResult { Errors = migrationIssues.ToList() });
+    }
+
+    private async Task ProcessFollowupWithThrottle(BulkImportFollowupWorkItem workItem, ConcurrentBag<string> migrationIssues, SemaphoreSlim followupTaskSemaphore)
+    {
+        await followupTaskSemaphore.WaitAsync();
+        try
+        {
+            await ProcessRedblockFollowupsAsync(workItem, migrationIssues);
+        }
+        finally
+        {
+            followupTaskSemaphore.Release();
+        }
+    }
+
+    private async Task ProcessRedblockFollowupsAsync(BulkImportFollowupWorkItem workItem, ConcurrentBag<string> migrationIssues)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var scopedUow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var scopedRepo = scopedUow.Repository<IRedblockRepository>();
+        
+        try
+        {
+            logger.LogInformation("Processing follow-up work for legacy redblock {LegacyRedblockKey} with new redblock ID {RedblockId}", workItem.LegacyRedblockKey, workItem.RedblockId);
+            scopedUow.BeginTransaction();
+
+            if (workItem.Role is not null)
+            {
+                var roleInsertResult = await scopedRepo.InsertRoleAssignment(workItem.ProjectId, workItem.RedblockKeyNumber, workItem.Role, workItem.CreatedByUserId);
+                if (!roleInsertResult.IsSuccessful)
+                    migrationIssues.Add($"Failed to assign role '{workItem.Role}' to redblock {workItem.RedblockId} for legacy redblock {workItem.LegacyRedblockKey}: {roleInsertResult.ErrorMessage}");
+            }
+
+            if (workItem.AssignedUserId.HasValue)
+            {
+                var userAssignmentInsertResult = await scopedRepo.InsertUserAssignment(workItem.ProjectId, workItem.RedblockKeyNumber, workItem.AssignedUserId.Value, workItem.CreatedByUserId);
+                if (!userAssignmentInsertResult.IsSuccessful)
+                    migrationIssues.Add($"Failed to assign user '{workItem.AssignedUsername ?? workItem.AssignedUserId.Value.ToString()}' to redblock {workItem.RedblockId} for legacy redblock {workItem.LegacyRedblockKey}: {userAssignmentInsertResult.ErrorMessage}");
+            }
+
+            foreach (var entity in workItem.Entities)
+            {
+                var entityInsertResult = await scopedRepo.InsertRedblockEntity(workItem.ProjectId, workItem.RedblockKeyNumber, entity);
+                if (!entityInsertResult.IsSuccessful)
+                    migrationIssues.Add($"Failed to add entity {entity} to redblock {workItem.RedblockId} for legacy redblock {workItem.LegacyRedblockKey}: {entityInsertResult.ErrorMessage}");
+            }
+
+            foreach (var status in workItem.Statuses)
+            {
+                await Task.Delay(1000);
+                var statusInsertResult = await scopedRepo.InsertStatus(workItem.ProjectId, workItem.RedblockKeyNumber, status.Status, status.CreatedByUserId);
+                if (!statusInsertResult.IsSuccessful)
+                    migrationIssues.Add($"Failed to add status '{status.Status}' to redblock {workItem.RedblockId} for legacy redblock {workItem.LegacyRedblockKey}: {statusInsertResult.ErrorMessage}");
+            }
+
+            if (workItem.IsDeleted)
+            {
+                var deletionResult = await scopedRepo.SoftDeleteRedblock(workItem.ProjectId, workItem.RedblockKeyNumber, workItem.SystemUserId);
+                if (!deletionResult.IsSuccessful)
+                    migrationIssues.Add($"Failed to delete redblock {workItem.RedblockId} for legacy redblock {workItem.LegacyRedblockKey}: {deletionResult.ErrorMessage}");
+            }
+
+            scopedUow.CompleteAndCommit();
+            logger.LogInformation("Completed follow-up work for legacy redblock {LegacyRedblockKey} with new redblock ID {RedblockId}", workItem.LegacyRedblockKey, workItem.RedblockId);
+        }
+        catch (Exception ex)
+        {
+            if (scopedUow.HasActiveTransaction)
+                scopedUow.Rollback();
+
+            migrationIssues.Add($"Unexpected failure while running follow-up inserts for legacy redblock {workItem.LegacyRedblockKey}: {ex.Message}");
+        }
+    }
+
+    private class BulkImportFollowupWorkItem
+    {
+        public required string LegacyRedblockKey { get; init; }
+        public required long ProjectId { get; init; }
+        public required long RedblockId { get; init; }
+        public required long RedblockKeyNumber { get; init; }
+        public required long CreatedByUserId { get; init; }
+        public long? AssignedUserId { get; init; }
+        public string? AssignedUsername { get; init; }
+        public string? Role { get; init; }
+        public required List<Guid> Entities { get; init; }
+        public required List<(string Status, long CreatedByUserId)> Statuses { get; init; }
+        public required bool IsDeleted { get; init; }
+        public required long SystemUserId { get; init; }
+    }
+
     public async Task<Result<Redblock>> CreateRedblock(long projectId, int x, int y, int z, string message, long createdBy, string initialStatus, List<long> assignedUsers, List<string> assignedRoles)
     {
         if (string.IsNullOrWhiteSpace(initialStatus))
@@ -107,10 +352,15 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger) 
         if (!roleAssignmentsResult.TryGetDataNonNull(out var roleAssignmentEntities))
             return Result<Redblock>.Failure(roleAssignmentsResult.ErrorMessage ?? "Failed to retrieve redblock role assignments.", roleAssignmentsResult.StatusCode);
 
+        var entitiesResult = await redblockRepo.SelectRedblockEntities(redblockId);
+        if (!entitiesResult.TryGetDataNonNull(out var foundEntities))
+            return Result<Redblock>.Failure(entitiesResult.ErrorMessage ?? "Failed to retrieve redblock entities.", entitiesResult.StatusCode);
+
         var mappedRedblock = Redblock.FromModel(redblockEntity);
         mappedRedblock.Statuses = statusEntities.Select(RedblockStatus.FromModel).ToList();
         mappedRedblock.UserAssignments = userAssignmentEntities.Select(RedblockUserAssignment.FromModel).ToList();
         mappedRedblock.RoleAssignments = roleAssignmentEntities.Select(RedblockRoleAssignment.FromModel).ToList();
+        mappedRedblock.Entities = foundEntities.ToList();
         
         return Result<Redblock>.Success(mappedRedblock);
         
@@ -136,10 +386,15 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger) 
         if (!roleAssignmentsResult.TryGetDataNonNull(out var roleAssignmentEntities))
             return Result<Redblock>.Failure(roleAssignmentsResult.ErrorMessage ?? "Failed to retrieve redblock role assignments.", roleAssignmentsResult.StatusCode);
 
+        var entitiesResult = await redblockRepo.SelectRedblockEntities(redblockEntity.RedblockId);
+        if (!entitiesResult.TryGetDataNonNull(out var foundEntities))
+            return Result<Redblock>.Failure(entitiesResult.ErrorMessage ?? "Failed to retrieve redblock entities.", entitiesResult.StatusCode);
+
         var mappedRedblock = Redblock.FromModel(redblockEntity);
         mappedRedblock.Statuses = statusEntities.Select(RedblockStatus.FromModel).ToList();
         mappedRedblock.UserAssignments = userAssignmentEntities.Select(RedblockUserAssignment.FromModel).ToList();
         mappedRedblock.RoleAssignments = roleAssignmentEntities.Select(RedblockRoleAssignment.FromModel).ToList();
+        mappedRedblock.Entities = foundEntities.ToList();
 
         return Result<Redblock>.Success(mappedRedblock);
     }
@@ -237,6 +492,49 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger) 
         
         uow.CompleteAndCommit();
         
+        return Result.Success();
+    }
+
+    public async Task<Result<List<Guid>>> ReplaceRedblockEntities(long projectId, long keyNumber, List<Guid> entities)
+    {
+        var redblockRepo = uow.Repository<IRedblockRepository>();
+        var distinctEntities = entities.Distinct().ToList();
+
+        uow.BeginTransaction();
+
+        var redblockResult = await redblockRepo.SelectRedblockByKey(projectId, keyNumber);
+        if (!redblockResult.IsSuccessful)
+            return Result<List<Guid>>.Failure(redblockResult.ErrorMessage ?? "Redblock not found.", redblockResult.StatusCode);
+
+        var deleteResult = await redblockRepo.DeleteRedblockEntities(projectId, keyNumber);
+        if (!deleteResult.IsSuccessful)
+            return Result<List<Guid>>.Failure(deleteResult.ErrorMessage ?? "Failed to clear redblock entities.", deleteResult.StatusCode);
+
+        foreach (var entityGuid in distinctEntities)
+        {
+            var insertResult = await redblockRepo.InsertRedblockEntity(projectId, keyNumber, entityGuid);
+            if (!insertResult.IsSuccessful)
+                return Result<List<Guid>>.Failure(insertResult.ErrorMessage ?? "Failed to replace redblock entities.", insertResult.StatusCode);
+        }
+
+        uow.CompleteAndCommit();
+        return Result<List<Guid>>.Success(distinctEntities);
+    }
+
+    public async Task<Result> ClearRedblockEntities(long projectId, long keyNumber)
+    {
+        var redblockRepo = uow.Repository<IRedblockRepository>();
+        uow.BeginTransaction();
+
+        var redblockResult = await redblockRepo.SelectRedblockByKey(projectId, keyNumber);
+        if (!redblockResult.IsSuccessful)
+            return Result.Failure(redblockResult.ErrorMessage ?? "Redblock not found.", redblockResult.StatusCode);
+
+        var deleteResult = await redblockRepo.DeleteRedblockEntities(projectId, keyNumber);
+        if (!deleteResult.IsSuccessful)
+            return Result.Failure(deleteResult.ErrorMessage ?? "Failed to clear redblock entities.", deleteResult.StatusCode);
+
+        uow.CompleteAndCommit();
         return Result.Success();
     }
 

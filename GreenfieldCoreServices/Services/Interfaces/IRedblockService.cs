@@ -9,6 +9,13 @@ public interface IRedblockService
     #region Redblock Service Methods
 
     /// <summary>
+    /// Imports redblocks in bulk.
+    /// </summary>
+    /// <param name="request">Bulk redblock import request.</param>
+    /// <returns>A result containing import errors for skipped/failed rows.</returns>
+    Task<Result<BulkImportRedblocksResult>> BulkImportRedblocks(BulkImportRedblocksRequest request);
+
+    /// <summary>
     /// Creates a new redblock at the specified coordinates within a project.
     /// </summary>
     /// <param name="projectId">The ID of the project to create the redblock in.</param>
@@ -114,6 +121,23 @@ public interface IRedblockService
     /// <param name="roleName">The name of the role to remove from the redblock.</param>
     /// <returns>A <see cref="Result"/> indicating whether the removal was successful.</returns>
     Task<Result> RemoveRedblockRoleAssignment(long projectId, long keyNumber, string roleName);
+
+    /// <summary>
+    /// Replaces all entity GUID mappings for a redblock.
+    /// </summary>
+    /// <param name="projectId">The ID of the project the redblock belongs to.</param>
+    /// <param name="keyNumber">The key number identifying the redblock within the project.</param>
+    /// <param name="entities">The full set of entity GUIDs that should be associated with the redblock.</param>
+    /// <returns>A <see cref="Result{T}"/> containing the persisted entity GUIDs.</returns>
+    Task<Result<List<Guid>>> ReplaceRedblockEntities(long projectId, long keyNumber, List<Guid> entities);
+
+    /// <summary>
+    /// Removes all entity GUID mappings for a redblock.
+    /// </summary>
+    /// <param name="projectId">The ID of the project the redblock belongs to.</param>
+    /// <param name="keyNumber">The key number identifying the redblock within the project.</param>
+    /// <returns>A <see cref="Result"/> indicating whether the clear was successful.</returns>
+    Task<Result> ClearRedblockEntities(long projectId, long keyNumber);
 
     #endregion
 
