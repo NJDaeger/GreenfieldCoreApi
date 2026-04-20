@@ -14,6 +14,7 @@ using GreenfieldCoreServices.Models.Connections.Discord;
 using GreenfieldCoreServices.Models.Connections.Patreon;
 using GreenfieldCoreServices.Models.Discord;
 using GreenfieldCoreServices.Models.Patreon;
+using GreenfieldCoreServices.Models.Redblocks;
 using GreenfieldCoreServices.Models.Resources;
 using GreenfieldCoreServices.Models.Users;
 using GreenfieldCoreServices.Services;
@@ -113,6 +114,8 @@ public static class Startup
         services.AddSingleton<ICacheService<(long userId, long discordConnectionId), DiscordDisconnectState>, DiscordDisconnectStateCache>();
         services.AddSingleton<ICacheService<string, ResourcePackCacheEntry>, ResourcePackCacheService>();
         services.AddSingleton<ICacheService<Guid, DownloadToken>, DownloadTokenCacheService>();
+        services.AddSingleton<ICacheService<string, RedblockProject>, RedblockProjectCache>();
+        services.AddSingleton<ICacheService<string, Redblock>, RedblockCache>();
     }
 
     internal static void ConfigureConfiguration(this IConfigurationBuilder configBuilder, IWebHostEnvironment env)

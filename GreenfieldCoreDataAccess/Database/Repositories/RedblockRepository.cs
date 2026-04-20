@@ -184,9 +184,11 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
             if (spatialStatementPart != null) statementBuilder.WithPart(spatialStatementPart);
 
             var countStatement = statementBuilder.BuildCount();
+            Console.WriteLine(countStatement.query);
             var totalResults = await Connection.ExecuteScalarAsync<long>(countStatement.query, countStatement.parameters, Transaction);
             
             var statement = statementBuilder.Build();
+            
             var redblocks = (await Connection.QueryAsync<RedblockWithLatestStatusEntity>(statement.query, statement.parameters, Transaction)).ToList();
             
             return Result<(IEnumerable<RedblockWithLatestStatusEntity> Redblocks, long TotalResults)>.Success((redblocks, totalResults));
@@ -323,7 +325,7 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
         if (matchType.Equals("or", StringComparison.OrdinalIgnoreCase))
             return roles.Count == 0
                 ? null
-                : builder.Join($"INNER JOIN `Redblocks.RoleAssignments` rra ON rb.RedblockId = rra.RedblockId AND rra.Role IN ({inClause})").Build();
+                : builder.Join($"INNER JOIN `Redblocks.RoleAssignments` rra ON rb.RedblockId = rra.RedblockId AND rra.RoleName IN ({inClause})").Build();
 
         // not + [] = return only redblocks with role assignments ("not empty")
         // not + [...] = return redblocks with no role assignments or role assignments that do not include any of the specified roles
@@ -331,7 +333,7 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
             return roles.Count == 0
                 ? builder.Join("INNER JOIN `Redblocks.RoleAssignments` rra ON rb.RedblockId = rra.RedblockId").Build()
                 : builder.Join("LEFT JOIN `Redblocks.RoleAssignments` rra ON rb.RedblockId = rra.RedblockId")
-                    .Where($"AND (rra.Role NOT IN ({inClause}) OR rra.Role IS NULL)")
+                    .Where($"AND (rra.Role NOT IN ({inClause}) OR rra.RoleName IS NULL)")
                     .Build();
 
         // and + [] = return redblocks with no roles assigned ("empty")
@@ -339,9 +341,9 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
         if  (matchType.Equals("and", StringComparison.OrdinalIgnoreCase))
             return roles.Count == 0
                 ? builder.Join("LEFT JOIN `Redblocks.RoleAssignments` rra ON rb.RedblockId = rra.RedblockId")
-                    .Where("AND rra.Role IS NULL")
+                    .Where("AND rra.RoleName IS NULL")
                     .Build()
-                : builder.Join($"INNER JOIN (SELECT RedblockId FROM `Redblocks.RoleAssignments` WHERE Role IN ({inClause}) GROUP BY RedblockId HAVING COUNT(DISTINCT Role) = {roles.Count}) rra ON rb.RedblockId = rra.RedblockId").Build();
+                : builder.Join($"INNER JOIN (SELECT RedblockId FROM `Redblocks.RoleAssignments` WHERE RoleName IN ({inClause}) GROUP BY RedblockId HAVING COUNT(DISTINCT RoleName) = {roles.Count}) rra ON rb.RedblockId = rra.RedblockId").Build();
         
         return null;
     }

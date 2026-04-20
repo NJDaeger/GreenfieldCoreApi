@@ -10,8 +10,10 @@ using Microsoft.Extensions.Logging;
 
 namespace GreenfieldCoreServices.Services;
 
-public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, IUserService userService, IServiceScopeFactory scopeFactory) : IRedblockService
+public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, IUserService userService, IServiceScopeFactory scopeFactory, ICacheService<string, RedblockProject> projectCache, ICacheService<string, Redblock> redblockCache) : IRedblockService
 {
+    #region Bulk Redblock Importing
+    
     public async Task<Result<BulkImportRedblocksResult>> BulkImportRedblocks(BulkImportRedblocksRequest request)
     {
         const int maxParallelFollowupWorkers = 16;
@@ -238,6 +240,10 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         }
     }
 
+    #endregion
+
+    #region Redblock Operations
+    
     public async Task<Result<Redblock>> CreateRedblock(string projectKey, int x, int y, int z, string message, long createdBy, string initialStatus, List<long> assignedUsers, List<string> assignedRoles)
     {
         var projectResult = await GetProjectByKey(projectKey);
@@ -290,6 +296,8 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         mappedRedblock.UserAssignments = actualAssignedUsers;
         mappedRedblock.Statuses = [RedblockStatus.FromModel(statusEntity)];
         
+        redblockCache.SetValue(projectEntity.ProjectKey + "-" + redblockEntity.KeyNumber, mappedRedblock);
+        
         return Result<Redblock>.Success(mappedRedblock);
     }
 
@@ -308,6 +316,8 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         
         uow.CompleteAndCommit();
         
+        redblockCache.RemoveValue(projectEntity.ProjectKey + "-" + keyNumber);
+        
         return Result.Success();
     }
 
@@ -321,16 +331,22 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         uow.BeginTransaction();
         
         var updateResult = await redblockRepo.UpdateRedblockMessage(projectEntity.ProjectId, keyNumber, newMessage, updatedBy);
-        if (!updateResult.IsSuccessful)
+        if (!updateResult.TryGetDataNonNull(out var redblockEntity))
             return Result.Failure(updateResult.ErrorMessage ?? "Failed to update redblock message.", updateResult.StatusCode);
         
         uow.CompleteAndCommit();
+        
+        redblockCache.RemoveValue(projectEntity.ProjectKey + "-" + keyNumber);
+        redblockCache.SetValue(projectEntity.ProjectKey + "-" + keyNumber, Redblock.FromModel(redblockEntity));
         
         return Result.Success();
     }
 
     public async Task<Result<Redblock>> GetRedblockByKey(string projectKey, long keyNumber)
     {
+        if (redblockCache.TryGetValue(projectKey + "-" + keyNumber, out var cachedRedblock))
+            return Result<Redblock>.Success(cachedRedblock);
+        
         var projectResult = await GetProjectByKey(projectKey);
         if (!projectResult.TryGetDataNonNull(out var projectEntity))
             return Result<Redblock>.Failure(projectResult.ErrorMessage ?? "Project not found for given key.", projectResult.StatusCode);
@@ -362,7 +378,9 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         mappedRedblock.UserAssignments = userAssignmentEntities.Select(RedblockUserAssignment.FromModel).ToList();
         mappedRedblock.RoleAssignments = roleAssignmentEntities.Select(RedblockRoleAssignment.FromModel).ToList();
         mappedRedblock.Entities = foundEntities.ToList();
-
+        
+        redblockCache.SetValue(projectEntity.ProjectKey + "-" + keyNumber, mappedRedblock);
+        
         return Result<Redblock>.Success(mappedRedblock);
     }
 
@@ -433,6 +451,12 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         
         uow.CompleteAndCommit();
         
+        if (redblockCache.TryGetValue(projectEntity.ProjectKey + "-" + keyNumber, out var cachedRedblock))
+        {
+            cachedRedblock.Statuses.Add(RedblockStatus.FromModel(statusEntity));
+            redblockCache.SetValue(projectEntity.ProjectKey + "-" + keyNumber, cachedRedblock);
+        }
+        
         return Result<RedblockStatus>.Success(RedblockStatus.FromModel(statusEntity));
     }
 
@@ -450,6 +474,12 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
             return Result<RedblockUserAssignment>.Failure(insertUserAssignmentResult.ErrorMessage ?? "Failed to assign user to redblock.", insertUserAssignmentResult.StatusCode);
         
         uow.CompleteAndCommit();
+        
+        if (redblockCache.TryGetValue(projectEntity.ProjectKey + "-" + keyNumber, out var cachedRedblock))
+        {
+            cachedRedblock.UserAssignments.Add(RedblockUserAssignment.FromModel(userAssignmentEntity));
+            redblockCache.SetValue(projectEntity.ProjectKey + "-" + keyNumber, cachedRedblock);
+        }
         
         return Result<RedblockUserAssignment>.Success(RedblockUserAssignment.FromModel(userAssignmentEntity));
     }
@@ -469,6 +499,12 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         
         uow.CompleteAndCommit();
         
+        if (redblockCache.TryGetValue(projectEntity.ProjectKey + "-" + keyNumber, out var cachedRedblock))
+        {
+            cachedRedblock.UserAssignments.RemoveAll(ua => ua.AssignedTo == assignedTo);
+            redblockCache.SetValue(projectEntity.ProjectKey + "-" + keyNumber, cachedRedblock);
+        }
+        
         return Result.Success();
     }
 
@@ -486,6 +522,12 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
             return Result<RedblockRoleAssignment>.Failure(insertRoleAssignmentResult.ErrorMessage ?? "Failed to assign role to redblock.", insertRoleAssignmentResult.StatusCode);
         
         uow.CompleteAndCommit();
+        
+        if (redblockCache.TryGetValue(projectEntity.ProjectKey + "-" + keyNumber, out var cachedRedblock))
+        {
+            cachedRedblock.RoleAssignments.Add(RedblockRoleAssignment.FromModel(roleAssignmentEntity));
+            redblockCache.SetValue(projectEntity.ProjectKey + "-" + keyNumber, cachedRedblock);
+        }
         
         return Result<RedblockRoleAssignment>.Success(RedblockRoleAssignment.FromModel(roleAssignmentEntity));
     }
@@ -505,6 +547,12 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         
         uow.CompleteAndCommit();
         
+        if (redblockCache.TryGetValue(projectEntity.ProjectKey + "-" + keyNumber, out var cachedRedblock))
+        {
+            cachedRedblock.RoleAssignments.RemoveAll(ra => ra.RoleName.Equals(roleName, StringComparison.OrdinalIgnoreCase));
+            redblockCache.SetValue(projectEntity.ProjectKey + "-" + keyNumber, cachedRedblock);
+        }
+        
         return Result.Success();
     }
 
@@ -519,10 +567,6 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
 
         uow.BeginTransaction();
 
-        var redblockResult = await redblockRepo.SelectRedblockByKey(projectEntity.ProjectId, keyNumber);
-        if (!redblockResult.IsSuccessful)
-            return Result<List<Guid>>.Failure(redblockResult.ErrorMessage ?? "Redblock not found.", redblockResult.StatusCode);
-
         var deleteResult = await redblockRepo.DeleteRedblockEntities(projectEntity.ProjectId, keyNumber);
         if (!deleteResult.IsSuccessful)
             return Result<List<Guid>>.Failure(deleteResult.ErrorMessage ?? "Failed to clear redblock entities.", deleteResult.StatusCode);
@@ -535,6 +579,13 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         }
 
         uow.CompleteAndCommit();
+        
+        if (redblockCache.TryGetValue(projectEntity.ProjectKey + "-" + keyNumber, out var cachedRedblock))
+        {
+            cachedRedblock.Entities = distinctEntities;
+            redblockCache.SetValue(projectEntity.ProjectKey + "-" + keyNumber, cachedRedblock);
+        }
+        
         return Result<List<Guid>>.Success(distinctEntities);
     }
 
@@ -556,9 +607,20 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
             return Result.Failure(deleteResult.ErrorMessage ?? "Failed to clear redblock entities.", deleteResult.StatusCode);
 
         uow.CompleteAndCommit();
+        
+        if (redblockCache.TryGetValue(projectEntity.ProjectKey + "-" + keyNumber, out var cachedRedblock))
+        {
+            cachedRedblock.Entities = [];
+            redblockCache.SetValue(projectEntity.ProjectKey + "-" + keyNumber, cachedRedblock);
+        }
+        
         return Result.Success();
     }
 
+    #endregion
+    
+    #region Project Operations
+    
     public async Task<Result<List<RedblockProject>>> GetProjects()
     {
         var redblockRepo = uow.Repository<IRedblockRepository>();
@@ -591,11 +653,16 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         
         uow.CompleteAndCommit();
         
+        projectCache.SetValue(projectEntity.ProjectKey, RedblockProject.FromModel(projectEntity));
+        
         return Result<RedblockProject>.Success(RedblockProject.FromModel(projectEntity));
     }
 
     public async Task<Result<RedblockProject>> GetProjectById(long projectId)
     {
+        if (projectCache.TryGetValue(p => p.ProjectId == projectId, out var cachedProject))
+            return Result<RedblockProject>.Success(cachedProject);
+        
         var redblockRepo = uow.Repository<IRedblockRepository>();
 
         var projectResult = await redblockRepo.SelectProjectById(projectId);
@@ -603,11 +670,17 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
             return Result<RedblockProject>.Failure(projectResult.ErrorMessage ?? "Failed to retrieve redblock project.", projectResult.StatusCode);
 
         var mappedProject = RedblockProject.FromModel(projectEntity);
+        
+        projectCache.SetValue(projectEntity.ProjectKey, mappedProject);
+        
         return Result<RedblockProject>.Success(mappedProject);
     }
 
     public async Task<Result<RedblockProject>> GetProjectByKey(string projectKey)
     {
+        if (projectCache.TryGetValue(projectKey, out var cachedProject))
+            return Result<RedblockProject>.Success(cachedProject);
+        
         var redblockRepo = uow.Repository<IRedblockRepository>();
 
         var projectResult = await redblockRepo.SelectProjectByKey(projectKey);
@@ -615,6 +688,9 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
             return Result<RedblockProject>.Failure(projectResult.ErrorMessage ?? "Failed to retrieve redblock project.", projectResult.StatusCode);
 
         var mappedProject = RedblockProject.FromModel(projectEntity);
+        
+        projectCache.SetValue(projectEntity.ProjectKey, mappedProject);
+        
         return Result<RedblockProject>.Success(mappedProject);
     }
 
@@ -629,6 +705,10 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         
         uow.CompleteAndCommit();
         
+        projectCache.SetValue(projectEntity.ProjectKey, RedblockProject.FromModel(projectEntity));
+        
         return Result<RedblockProject>.Success(RedblockProject.FromModel(projectEntity));
     }
+    
+    #endregion
 }
