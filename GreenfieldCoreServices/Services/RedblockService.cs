@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using GreenfieldCoreDataAccess.Database.Repositories.Interfaces;
 using GreenfieldCoreDataAccess.Database.UnitOfWork;
+using GreenfieldCoreServices.Extensions;
 using GreenfieldCoreServices.Models.Redblocks;
 using GreenfieldCoreServices.Models.Users;
 using GreenfieldCoreServices.Services.Interfaces;
@@ -371,6 +372,30 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         if (!projectResult.TryGetDataNonNull(out var projectEntity))
             return Result<RedblockSearchResult>.Failure(projectResult.ErrorMessage ?? "Project not found for given key.", projectResult.StatusCode);
         
+        if (searchFilter.CurrentPage < 1)
+            return Result<RedblockSearchResult>.Failure("Current page must be greater or equal to 1.");
+        
+        if (searchFilter.ResultsPerPage < 1)
+            return Result<RedblockSearchResult>.Failure("Results per page must be greater than or equal to 1");
+        
+        if (searchFilter.Location is not null && searchFilter.Radius is not null && searchFilter.Radius < 0)
+            return Result<RedblockSearchResult>.Failure("Radius filter cannot be negative.");
+        
+        if (searchFilter.StatusFilter is not null && !searchFilter.StatusFilter.MatchType.IsAnyOf("or", "not"))
+            return Result<RedblockSearchResult>.Failure("Status filter must have a match type of either 'or' or 'not'.");
+        
+        if (searchFilter.DeletionFilter is not null && !searchFilter.DeletionFilter.MatchType.IsAnyOf("or", "not", "and"))
+            return Result<RedblockSearchResult>.Failure("Deletion filter must have a match type of either 'or' or 'not' or 'and'.");
+        
+        if (searchFilter.UserAssignmentFilter is not null && !searchFilter.UserAssignmentFilter.MatchType.IsAnyOf("or", "not", "and"))
+            return Result<RedblockSearchResult>.Failure("User assignment filter must have a match type of either 'or' or 'not' or 'and'.");
+        
+        if (searchFilter.RoleAssignmentFilter is not null && !searchFilter.RoleAssignmentFilter.MatchType.IsAnyOf("or", "not", "and"))
+            return Result<RedblockSearchResult>.Failure("Role assignment filter must have a match type of either 'or' or 'not' or 'and'.");
+        
+        if (searchFilter.MessageFilter is not null && !searchFilter.MessageFilter.MatchType.IsAnyOf("contains", "startsWith", "endsWith", "exact"))
+            return Result<RedblockSearchResult>.Failure("Message filter must have a match type of either 'contains', 'startsWith', 'endsWith', or 'exact'.");
+        
         var redblockRepo = uow.Repository<IRedblockRepository>();
         
         var searchResult = await redblockRepo.SelectRedblocksByProject(projectEntity.ProjectId, 
@@ -379,7 +404,8 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
             searchFilter.DeletionFilter?.Users ?? [], searchFilter.DeletionFilter?.MatchType,
             searchFilter.UserAssignmentFilter?.Users ?? [], searchFilter.UserAssignmentFilter?.MatchType,
             searchFilter.RoleAssignmentFilter?.Roles ?? [], searchFilter.RoleAssignmentFilter?.MatchType,
-            searchFilter.MessageFilter?.Content ?? "", searchFilter.MessageFilter?.MatchType, searchFilter.ResultsPerPage, searchFilter.CurrentPage);
+            searchFilter.MessageFilter?.Content ?? "", searchFilter.MessageFilter?.MatchType, 
+            searchFilter.ResultsPerPage, searchFilter.CurrentPage);
 
         if (!searchResult.TryGetDataNonNull(out var actualSearchResult))
             return Result<RedblockSearchResult>.Failure(searchResult.ErrorMessage ?? "Failed to search redblocks.", searchResult.StatusCode);

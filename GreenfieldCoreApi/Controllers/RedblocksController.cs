@@ -141,11 +141,6 @@ public class RedblocksController(IRedblockService redblockService) : ControllerB
     {
         if (string.IsNullOrWhiteSpace(projectKey) || projectKey.Equals($"{{{nameof(projectKey)}}}", StringComparison.OrdinalIgnoreCase))
             return Problem("Project key must be provided.", statusCode: StatusCodes.Status400BadRequest);
-        
-        if (searchFilter.ResultsPerPage < 1)
-            return Problem("ResultsPerPage must be at least 1.", statusCode: StatusCodes.Status400BadRequest);
-        if (searchFilter.CurrentPage < 1)
-            return Problem("CurrentPage must be at least 1.", statusCode: StatusCodes.Status400BadRequest);
 
         var redblocksResult = await redblockService.SearchRedblocks(projectKey, searchFilter);
         return redblocksResult.IsSuccessful
