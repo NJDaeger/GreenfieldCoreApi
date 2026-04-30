@@ -2,11 +2,9 @@ using GreenfieldCoreDataAccess.Database.Models;
 
 namespace GreenfieldCoreServices.Models.Redblocks;
 
-public class Redblock : IModelConvertable<RedblockEntity, Redblock>
+public class Redblock : IModelConvertable<(RedblockEntity redblockEntity, RedblockProject project, List<RedblockStatus> statuses, List<RedblockUserAssignment> userAssignments, List<RedblockRoleAssignment> roleAssignments, List<Guid> entities), Redblock>
 {
-    public required long RedblockId { get; set; }
-    public required long ProjectId { get; set; }
-    public required long KeyNumber { get; set; }
+    public required string Key { get; set; }
     public required string Message { get; set; }
     public required int X { get; set; }
     public required int Y { get; set; }
@@ -24,21 +22,26 @@ public class Redblock : IModelConvertable<RedblockEntity, Redblock>
     public List<RedblockRoleAssignment> RoleAssignments { get; set; } = [];
     public List<Guid> Entities { get; set; } = [];
 
-    public static Redblock FromModel(RedblockEntity from)
+    public static Redblock FromModel((RedblockEntity redblockEntity, RedblockProject project, List<RedblockStatus> statuses, List<RedblockUserAssignment> userAssignments, List<RedblockRoleAssignment> roleAssignments, List<Guid> entities) from)
     {
         return new Redblock
         {
-            RedblockId = from.RedblockId,
-            ProjectId = from.ProjectId,
-            KeyNumber = from.KeyNumber,
-            Message = from.Message,
-            X = from.X,
-            Y = from.Y,
-            Z = from.Z,
-            CreatedBy = from.CreatedBy,
-            CreatedOn = from.CreatedOn,
-            DeletedBy = from.DeletedBy,
-            DeletedOn = from.DeletedOn
+            Key = from.project.ProjectKey + "-" + from.redblockEntity.KeyNumber,
+            Message = from.redblockEntity.Message,
+            X = from.redblockEntity.X,
+            Y = from.redblockEntity.Y,
+            Z = from.redblockEntity.Z,
+            Project = from.project,
+            Statuses = from.statuses,
+            UserAssignments = from.userAssignments,
+            RoleAssignments = from.roleAssignments,
+            Entities = from.entities,
+            UpdatedBy = from.redblockEntity.UpdatedBy,
+            UpdatedOn = from.redblockEntity.UpdatedOn,
+            CreatedBy = from.redblockEntity.CreatedBy,
+            CreatedOn = from.redblockEntity.CreatedOn,
+            DeletedBy = from.redblockEntity.DeletedBy,
+            DeletedOn = from.redblockEntity.DeletedOn
         };
     }
 }

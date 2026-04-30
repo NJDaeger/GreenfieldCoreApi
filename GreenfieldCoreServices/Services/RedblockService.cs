@@ -291,12 +291,9 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
 
         uow.CompleteAndCommit();
         
-        var mappedRedblock = Redblock.FromModel(redblockEntity);
-        mappedRedblock.RoleAssignments = actualAssignedRoles;
-        mappedRedblock.UserAssignments = actualAssignedUsers;
-        mappedRedblock.Statuses = [RedblockStatus.FromModel(statusEntity)];
+        var mappedRedblock = Redblock.FromModel((redblockEntity, projectEntity, [RedblockStatus.FromModel(statusEntity)], actualAssignedUsers, actualAssignedRoles, []));
         
-        redblockCache.SetValue(projectEntity.ProjectKey + "-" + redblockEntity.KeyNumber, mappedRedblock);
+        redblockCache.SetValue(mappedRedblock.Key, mappedRedblock);
         
         return Result<Redblock>.Success(mappedRedblock);
     }
@@ -337,7 +334,7 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         uow.CompleteAndCommit();
         
         redblockCache.RemoveValue(projectEntity.ProjectKey + "-" + keyNumber);
-        redblockCache.SetValue(projectEntity.ProjectKey + "-" + keyNumber, Redblock.FromModel(redblockEntity));
+        _ = await GetRedblockByKey(projectKey, keyNumber);
         
         return Result.Success();
     }
@@ -373,13 +370,14 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         if (!entitiesResult.TryGetDataNonNull(out var foundEntities))
             return Result<Redblock>.Failure(entitiesResult.ErrorMessage ?? "Failed to retrieve redblock entities.", entitiesResult.StatusCode);
 
-        var mappedRedblock = Redblock.FromModel(redblockEntity);
-        mappedRedblock.Statuses = statusEntities.Select(RedblockStatus.FromModel).ToList();
-        mappedRedblock.UserAssignments = userAssignmentEntities.Select(RedblockUserAssignment.FromModel).ToList();
-        mappedRedblock.RoleAssignments = roleAssignmentEntities.Select(RedblockRoleAssignment.FromModel).ToList();
-        mappedRedblock.Entities = foundEntities.ToList();
+        var mappedRedblock = Redblock.FromModel((redblockEntity, 
+            projectEntity, 
+            statusEntities.Select(RedblockStatus.FromModel).ToList(),
+            userAssignmentEntities.Select(RedblockUserAssignment.FromModel).ToList(),
+            roleAssignmentEntities.Select(RedblockRoleAssignment.FromModel).ToList(),
+            foundEntities.ToList()));
         
-        redblockCache.SetValue(projectEntity.ProjectKey + "-" + keyNumber, mappedRedblock);
+        redblockCache.SetValue(mappedRedblock.Key, mappedRedblock);
         
         return Result<Redblock>.Success(mappedRedblock);
     }
