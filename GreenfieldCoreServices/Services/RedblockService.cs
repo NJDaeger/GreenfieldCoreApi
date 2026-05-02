@@ -645,7 +645,7 @@ public class RedblockService(IUnitOfWork uow, ILogger<IRedblockService> logger, 
         var redblockRepo = uow.Repository<IRedblockRepository>();
         uow.BeginTransaction();
         
-        var insertResult = await redblockRepo.InsertProject(projectName, projectKey);
+        var insertResult = await redblockRepo.InsertProject(projectName, projectKey.ToUpper());
         if (!insertResult.TryGetDataNonNull(out var projectEntity))
             return Result<RedblockProject>.Failure(insertResult.ErrorMessage ?? "Failed to create redblock project.", insertResult.StatusCode);
         

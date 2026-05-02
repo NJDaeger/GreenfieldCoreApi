@@ -3,7 +3,6 @@ namespace GreenfieldCoreApi.ApiModels;
 public class CreateProjectRequest
 {
     public required string ProjectName { get; set; }
-    public required string ProjectKey { get; set; }
 }
 
 public class UpdateProjectRequest

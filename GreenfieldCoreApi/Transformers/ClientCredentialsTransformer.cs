@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.OpenApi;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 
 namespace GreenfieldCoreApi.Transformers;
 
@@ -31,13 +31,15 @@ public class ClientCredentialsTransformer(IAuthenticationSchemeProvider authenti
                 },
                 Description = "OAuth2 Client Credentials"
             };
-
+            
+            document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
             document.Components.SecuritySchemes[securitySchemeId] = oauth2Scheme;
+            document.Security ??= new List<OpenApiSecurityRequirement>();
 
             // Add the OAuth2 scheme as a requirement for the API as a whole (no scopes)
-            document.SecurityRequirements.Add(new OpenApiSecurityRequirement
+            document.Security.Add(new OpenApiSecurityRequirement
             {
-                [new OpenApiSecurityScheme { Reference = new OpenApiReference { Id = securitySchemeId, Type = ReferenceType.SecurityScheme } }] = Array.Empty<string>()
+                { new OpenApiSecuritySchemeReference(securitySchemeId), [] }
             });
         }
     }

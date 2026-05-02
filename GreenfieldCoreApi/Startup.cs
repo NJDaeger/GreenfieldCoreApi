@@ -200,7 +200,7 @@ public static class Startup
         
         app.MapOpenApi();
         app.MapScalarApiReference(options => options
-            .WithLayout(ScalarLayout.Classic)
+            .WithClassicLayout()
             .WithTitle("Greenfield Core API (" + app.Environment.EnvironmentName + ")")
             .AddPreferredSecuritySchemes("OAuth2")
             .AddClientCredentialsFlow("OAuth2", flow =>
@@ -208,7 +208,8 @@ public static class Startup
                     flow.TokenUrl = "/api/v1.0/login/token";
                     flow.CredentialsLocation = CredentialsLocation.Body;
                 })
-            .WithPersistentAuthentication()
+            .WithTheme(ScalarTheme.Moon)
+            .EnablePersistentAuthentication()
         );
         app.UseAuthentication();
         app.UseAuthorization();
