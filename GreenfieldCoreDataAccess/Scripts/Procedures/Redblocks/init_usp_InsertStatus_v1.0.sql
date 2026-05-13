@@ -27,14 +27,11 @@ begin
         if row_count() > 0 then
             select
                 s.StatusId,
-                rb.ProjectId,
-                rb.KeyNumber,
                 s.RedblockId,
                 s.Status,
                 s.CreatedBy,
                 s.CreatedOn
             from `Redblocks.Statuses` s
-            join `Redblocks.Redblocks` rb on rb.RedblockId = s.RedblockId
             where s.StatusId = last_insert_id();
         end if;
     end if;

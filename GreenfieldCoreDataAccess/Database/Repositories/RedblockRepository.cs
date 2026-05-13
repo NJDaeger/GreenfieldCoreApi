@@ -1,4 +1,3 @@
-using System.Data;
 using System.Data.Common;
 using System.Net;
 using Dapper;
@@ -443,35 +442,35 @@ public class RedblockRepository(IUnitOfWork uow, ILogger<IRedblockRepository> lo
         }
     }
 
-    public async Task<Result<RedblockEntity>> UpdateRedblockMessage(long projectId, long keyNumber, string message, long updatedBy)
+    public async Task<Result<RedblockWithLatestStatusEntity>> UpdateRedblockMessage(long projectId, long keyNumber, string message, long updatedBy)
     {
         try
         {
             var result = await Connection.QuerySingleProcedure(StoredProcs.Redblocks.UpdateRedblockMessage, (projectId, keyNumber, message, updatedBy), Transaction);
             return result is null
-                ? Result<RedblockEntity>.Failure("Redblock not found.", HttpStatusCode.NotFound)
-                : Result<RedblockEntity>.Success(result);
+                ? Result<RedblockWithLatestStatusEntity>.Failure("Redblock not found.", HttpStatusCode.NotFound)
+                : Result<RedblockWithLatestStatusEntity>.Success(result);
         }
         catch (DbException ex)
         {
             logger.LogDebug("{ErrorMessage}", ex.Message);
-            return Result<RedblockEntity>.Failure($"Failed to update redblock message: {ex.Message}", HttpStatusCode.InternalServerError);
+            return Result<RedblockWithLatestStatusEntity>.Failure($"Failed to update redblock message: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 
-    public async Task<Result<RedblockEntity>> SoftDeleteRedblock(long projectId, long keyNumber, long deletedBy)
+    public async Task<Result<RedblockWithLatestStatusEntity>> SoftDeleteRedblock(long projectId, long keyNumber, long deletedBy)
     {
         try
         {
             var result = await Connection.QuerySingleProcedure(StoredProcs.Redblocks.SoftDeleteRedblock, (projectId, keyNumber, deletedBy), Transaction);
             return result is null
-                ? Result<RedblockEntity>.Failure("Redblock not found.", HttpStatusCode.NotFound)
-                : Result<RedblockEntity>.Success(result);
+                ? Result<RedblockWithLatestStatusEntity>.Failure("Redblock not found.", HttpStatusCode.NotFound)
+                : Result<RedblockWithLatestStatusEntity>.Success(result);
         }
         catch (DbException ex)
         {
             logger.LogDebug("{ErrorMessage}", ex.Message);
-            return Result<RedblockEntity>.Failure($"Failed to soft delete redblock: {ex.Message}", HttpStatusCode.InternalServerError);
+            return Result<RedblockWithLatestStatusEntity>.Failure($"Failed to soft delete redblock: {ex.Message}", HttpStatusCode.InternalServerError);
         }
     }
 

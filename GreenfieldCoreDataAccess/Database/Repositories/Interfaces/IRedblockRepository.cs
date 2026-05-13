@@ -141,7 +141,8 @@ public interface IRedblockRepository
     /// <param name="message">The new message to set.</param>
     /// <param name="updatedBy"></param>
     /// <returns>Result containing the updated <see cref="RedblockEntity"/>, or a failed Result if no Redblock was found.</returns>
-    Task<Result<RedblockEntity>> UpdateRedblockMessage(long projectId, long keyNumber, string message, long updatedBy);
+    Task<Result<RedblockWithLatestStatusEntity>> UpdateRedblockMessage(long projectId, long keyNumber, string message,
+        long updatedBy);
 
     /// <summary>
     /// Soft delete a Redblock.
@@ -150,7 +151,7 @@ public interface IRedblockRepository
     /// <param name="keyNumber">The Redblock key number within the project.</param>
     /// <param name="deletedBy">The internal user ID of the user performing the delete.</param>
     /// <returns>Result containing the updated <see cref="RedblockEntity"/>, or a failed Result if no Redblock was found.</returns>
-    Task<Result<RedblockEntity>> SoftDeleteRedblock(long projectId, long keyNumber, long deletedBy);
+    Task<Result<RedblockWithLatestStatusEntity>> SoftDeleteRedblock(long projectId, long keyNumber, long deletedBy);
 
     /// <summary>
     /// Add a status entry to a Redblock.

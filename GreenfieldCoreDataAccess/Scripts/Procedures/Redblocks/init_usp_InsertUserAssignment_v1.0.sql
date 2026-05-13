@@ -26,14 +26,11 @@ begin
 
         select
             ua.UserAssignmentId,
-            rb.ProjectId,
-            rb.KeyNumber,
             ua.RedblockId,
             ua.AssignedTo,
             ua.CreatedBy,
             ua.CreatedOn
         from `Redblocks.UserAssignments` ua
-        join `Redblocks.Redblocks` rb on rb.RedblockId = ua.RedblockId
         where ua.RedblockId = v_RedblockId
           and ua.AssignedTo = p_AssignedTo
         order by ua.UserAssignmentId desc

@@ -26,14 +26,11 @@ begin
 
         select
             ra.RoleAssignmentId,
-            rb.ProjectId,
-            rb.KeyNumber,
             ra.RedblockId,
             ra.RoleName,
             ra.CreatedBy,
             ra.CreatedOn
         from `Redblocks.RoleAssignments` ra
-        join `Redblocks.Redblocks` rb on rb.RedblockId = ra.RedblockId
         where ra.RedblockId = v_RedblockId
           and ra.RoleName = p_RoleName
         order by ra.RoleAssignmentId desc
