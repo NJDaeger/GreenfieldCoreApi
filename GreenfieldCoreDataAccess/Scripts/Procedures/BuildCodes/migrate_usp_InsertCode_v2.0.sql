@@ -2,7 +2,7 @@
 drop procedure if exists `BuildCodes.usp_InsertCode`;
 create procedure if not exists `BuildCodes.usp_InsertCode`(
     p_ListOrder int,
-    p_BuildCode varchar(4096))
+    p_BuildCode varchar(4096) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci)
 begin
     insert into `BuildCodes.Codes` (
         ListOrder,

@@ -17,7 +17,7 @@ public class BuildCodeController(ICodeService codeService) : ControllerBase
     [Authorize(Roles = "Codes.Read,Codes")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces(typeof(IEnumerable<BuildCode>))]
-    public async Task<IActionResult> GetAll([FromQuery] bool showDeleted = false)
+    public async Task<IActionResult> GetAll()
     {
         var codesResult = await codeService.GetAllBuildCodes();
         return codesResult.IsSuccessful

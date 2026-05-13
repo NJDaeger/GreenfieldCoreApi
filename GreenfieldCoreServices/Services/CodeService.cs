@@ -10,8 +10,6 @@ public class CodeService(IUnitOfWork uow, ICacheService<long, BuildCode> cache) 
 {
     public async Task<Result<IEnumerable<BuildCode>>> GetAllBuildCodes()
     {
-        if (cache.GetCount() > 0) return Result<IEnumerable<BuildCode>>.Success(cache.GetValues());
-        
         var repo = uow.Repository<ICodeRepository>();
         var buildCodes = (await repo.SelectCodes()).GetNonNullOrThrow();
         

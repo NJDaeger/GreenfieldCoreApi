@@ -1,0 +1,4 @@
+-- DependsOn: ScriptHistory
+alter table `Clients.Clients`
+    convert to character set utf8mb4 collate utf8mb4_unicode_ci;
+
