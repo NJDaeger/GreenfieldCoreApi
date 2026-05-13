@@ -2,7 +2,7 @@
 create procedure if not exists `Redblocks.usp_DeleteRoleAssignment`(
     p_ProjectId bigint,
     p_KeyNumber bigint,
-    p_RoleName varchar(32))
+    p_RoleName varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci)
 begin
     delete ra
     from `Redblocks.RoleAssignments` ra

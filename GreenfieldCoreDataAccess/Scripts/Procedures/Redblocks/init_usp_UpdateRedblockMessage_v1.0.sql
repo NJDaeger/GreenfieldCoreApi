@@ -2,7 +2,7 @@
 create procedure if not exists `Redblocks.usp_UpdateRedblockMessage`(
     p_ProjectId bigint,
     p_KeyNumber bigint,
-    p_Message varchar(1024),
+    p_Message varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
     p_UpdatedBy bigint)
 begin
     update `Redblocks.Redblocks` rb

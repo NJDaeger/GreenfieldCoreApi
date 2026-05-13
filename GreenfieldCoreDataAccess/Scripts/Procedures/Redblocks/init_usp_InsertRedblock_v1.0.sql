@@ -1,7 +1,7 @@
 -- DependsOn: ScriptHistory, Projects, Redblocks, Statuses
 create procedure if not exists `Redblocks.usp_InsertRedblock`(
     p_ProjectId bigint,
-    p_Message varchar(1024),
+    p_Message varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
     p_X int,
     p_Y int,
     p_Z int,
