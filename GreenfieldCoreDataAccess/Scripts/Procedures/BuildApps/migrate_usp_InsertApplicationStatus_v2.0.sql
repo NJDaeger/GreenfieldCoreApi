@@ -2,8 +2,8 @@
 drop procedure if exists `BuildApps.usp_InsertApplicationStatus`;
 create procedure if not exists `BuildApps.usp_InsertApplicationStatus`(
     p_ApplicationId bigint,
-    p_Status varchar(256),
-    p_StatusMessage varchar(2048))
+    p_Status varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+    p_StatusMessage varchar(2048) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci)
 begin
     insert into `BuildApps.ApplicationStatus` (
         ApplicationId,

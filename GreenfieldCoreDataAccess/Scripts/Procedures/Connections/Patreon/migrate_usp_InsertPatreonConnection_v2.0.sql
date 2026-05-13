@@ -1,13 +1,13 @@
 -- DependsOn: ScriptHistory, PatreonConnections
 drop procedure if exists `Connections.Patreon.usp_InsertPatreonConnection`;
 create procedure if not exists `Connections.Patreon.usp_InsertPatreonConnection`(
-    p_RefreshToken varchar(512),
-    p_AccessToken varchar(512),
-    p_TokenType varchar(64),
+    p_RefreshToken varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+    p_AccessToken varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+    p_TokenType varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
     p_TokenExpiry datetime,
-    p_Scope varchar(1024),
+    p_Scope varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
     p_PatreonId bigint,
-    p_FullName varchar(256),
+    p_FullName varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
     p_Pledge decimal
 )
 begin
