@@ -2,8 +2,8 @@
 drop procedure if exists `BuildApps.usp_UpdateImageLink`;
 create procedure if not exists `BuildApps.usp_UpdateImageLink`(
     p_ImageLinkId bigint,
-    p_LinkType varchar(256),
-    p_ImageLink varchar(2048))
+    p_LinkType varchar(256) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+    p_ImageLink varchar(2048) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci)
 begin
     update `BuildApps.ImageLinks` bali
     set

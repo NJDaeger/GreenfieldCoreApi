@@ -2,7 +2,7 @@
 drop procedure if exists `Users.usp_InsertUser`;
 create procedure if not exists `Users.usp_InsertUser`(
     p_MinecraftUuid char(36),
-    p_MinecraftUsername varchar(16))
+    p_MinecraftUsername varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci)
 begin
     -- Attempt insert; ignore if UUID already exists
     insert ignore into `Users.Users` (MinecraftUuid, MinecraftUsername)
