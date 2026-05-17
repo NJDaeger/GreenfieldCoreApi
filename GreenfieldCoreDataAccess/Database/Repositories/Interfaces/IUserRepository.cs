@@ -20,6 +20,13 @@ public interface IUserRepository
     Task<Result<UserEntity>> SelectUserByUuid(Guid minecraftUuid);
 
     /// <summary>
+    /// Select users by Minecraft username.
+    /// </summary>
+    /// <param name="minecraftUsername">The Minecraft username to match.</param>
+    /// <returns>Result containing users with matching username.</returns>
+    Task<Result<IEnumerable<UserEntity>>> SelectUsersByUsername(string minecraftUsername);
+
+    /// <summary>
     /// Create a new user. Returns Result containing the created UserEntity if an insert occurred, or null if no insert was performed.
     /// </summary>
     /// <param name="minecraftUuid">The Minecraft UUID of the user to create</param>

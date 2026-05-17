@@ -93,6 +93,7 @@ public static class Startup
         services.AddHttpClient<IPatreonApi, PatreonApi>(client => { client.BaseAddress = new Uri("https://www.patreon.com/api/oauth2/"); });
         services.AddHttpClient<IDiscordApi, DiscordApi>(client => { client.BaseAddress = new Uri("https://discord.com"); });
         services.AddHttpClient<IGitHubApi, GitHubApi>(client => { client.BaseAddress = new Uri("https://api.github.com"); });
+        services.AddHttpClient<IMojangApi, MojangApi>(client => { client.BaseAddress = new Uri("https://sessionserver.mojang.com"); });
 
         services.AddTransient<IResourcePackService, ResourcePackService>();
         services.AddSingleton<TaskStartSignalService>();

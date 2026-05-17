@@ -2,11 +2,13 @@ using System.Net;
 using GreenfieldCoreDataAccess.Database.Repositories.Interfaces;
 using GreenfieldCoreDataAccess.Database.UnitOfWork;
 using GreenfieldCoreServices.Models.Users;
+using GreenfieldCoreServices.Services.External.Interfaces;
 using GreenfieldCoreServices.Services.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace GreenfieldCoreServices.Services;
 
-public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache) : IUserService
+public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache, IMojangApi mojangApi, ILogger<IUserService> logger) : IUserService
 {
     public async Task<Result<User>> CreateUser(Guid minecraftUuid, string username)
     {
@@ -16,6 +18,10 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache) :
         
         var didFindUser = userCache.TryGetValue(u => u.MinecraftUuid == minecraftUuid, out _) || (await repo.SelectUserByUuid(minecraftUuid)).GetOrThrow() is not null;
         if (didFindUser) return Result<User>.Failure("User already exists.", HttpStatusCode.Conflict);
+
+        var collisionRefreshResult = await ResolveCollisions(minecraftUuid, username);
+        if (!collisionRefreshResult.IsSuccessful)
+            logger.LogWarning("Collision resolution failed while creating user with UUID '{MinecraftUuid}' and username '{Username}': {ErrorMessage}", minecraftUuid, username, collisionRefreshResult.ErrorMessage);
         
         uow.BeginTransaction();
         var created = (await repo.CreateUser(minecraftUuid, username)).GetOrThrow();
@@ -35,7 +41,6 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache) :
 
         try
         {
-            uow.BeginTransaction();
 
             foreach (var entry in users)
             {
@@ -51,9 +56,19 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache) :
                     continue;
                 }
 
+                var collisionRefreshResult = await ResolveCollisions(entry.Uuid, entry.Username);
+                if (!collisionRefreshResult.IsSuccessful)
+                {
+                    skipped.Add(new BulkImportUserSkipped { Uuid = entry.Uuid, Reason = collisionRefreshResult.ErrorMessage ?? "Failed to refresh colliding usernames." });
+                    continue;
+                }
+
+                uow.BeginTransaction();
                 var createResult = await repo.CreateUser(entry.Uuid, entry.Username);
+                uow.Complete();
                 if (!createResult.IsSuccessful)
                 {
+                    uow.Rollback();
                     skipped.Add(new BulkImportUserSkipped { Uuid = entry.Uuid, Reason = createResult.ErrorMessage ?? "Unknown error." });
                     continue;
                 }
@@ -61,6 +76,7 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache) :
                 var createdEntity = createResult.Data;
                 if (createdEntity is null)
                 {
+                    uow.Rollback();
                     skipped.Add(new BulkImportUserSkipped { Uuid = entry.Uuid, Reason = "User already exists." });
                     continue;
                 }
@@ -68,9 +84,8 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache) :
                 var createdUser = User.FromModel(createdEntity);
                 created.Add(entry.Uuid);
                 userCache.SetValue(createdUser.UserId, createdUser);
+                uow.Commit();
             }
-
-            uow.CompleteAndCommit();
             return Result<BulkImportUsersResult>.Success(new BulkImportUsersResult
             {
                 Created = created,
@@ -116,6 +131,10 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache) :
         var existingUserResult = await GetUserByUuid(minecraftUuid);
         if (!existingUserResult.IsSuccessful) return existingUserResult;
         var existingUser = existingUserResult.GetNonNullOrThrow();
+
+        var collisionRefreshResult = await ResolveCollisions(minecraftUuid, newUsername);
+        if (!collisionRefreshResult.IsSuccessful)
+            logger.LogWarning("Collision resolution failed while updating username for user '{UserId}' with UUID '{MinecraftUuid}' to new username '{NewUsername}': {ErrorMessage}", existingUser.UserId, minecraftUuid, newUsername, collisionRefreshResult.ErrorMessage);
         
         uow.BeginTransaction();
         var updateResult = await repo.UpdateUsername(minecraftUuid, newUsername);
@@ -125,6 +144,43 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache) :
         existingUser.Username = newUsername;
         userCache.SetValue(existingUser.UserId, existingUser);
         return Result<User>.Success(existingUser);
+    }
+    
+    private async Task<Result<List<User>>> GetCollidingUsers(string username)
+    {
+        var repo = uow.Repository<IUserRepository>();
+        var result = await repo.SelectUsersByUsername(username);
+        return !result.TryGetDataNonNull(out var collidingUsers) 
+            ? Result<List<User>>.Failure(result.ErrorMessage ?? "Failed to retrieve colliding users.", result.StatusCode) 
+            : Result<List<User>>.Success(collidingUsers.Select(User.FromModel).ToList());
+    }
+
+    private async Task<Result> ResolveCollisions(Guid minecraftUuid, string username)
+    {
+        var collidingUsers = await GetCollidingUsers(username);
+        if (!collidingUsers.TryGetDataNonNull(out var collidingUsersList))
+            return Result.Failure(collidingUsers.ErrorMessage ?? "Failed to retrieve colliding users for collision resolution.", collidingUsers.StatusCode);
+        
+        if (collidingUsersList.Count == 0 || (collidingUsersList.Count == 1 && collidingUsersList[0].MinecraftUuid == minecraftUuid))
+            return Result.Success();
+
+        foreach (var collidingUser in collidingUsersList)
+        {
+            logger.LogInformation("Found colliding user '{CollidingUserId}' with UUID '{CollidingUserUuid}' for username '{Username}'. Attempting to refresh username from Mojang.", collidingUser.UserId, collidingUser.MinecraftUuid, username);
+            var updatedUsername = await mojangApi.GetCurrentUsername(collidingUser.MinecraftUuid);
+            
+            if (!updatedUsername.TryGetDataNonNull(out var refreshedUsername))
+                return Result.Failure(updatedUsername.ErrorMessage ?? $"Failed to refresh username from Mojang for user '{collidingUser.UserId}'.", updatedUsername.StatusCode);
+            
+            if (refreshedUsername.Equals(username, StringComparison.OrdinalIgnoreCase))
+                return Result.Failure($"Mojang returned the same username '{refreshedUsername}' for user '{collidingUser.UserId}', which is still colliding.", HttpStatusCode.Conflict);
+            
+            if (!IsValidUsername(refreshedUsername) && collidingUser.MinecraftUuid != Guid.Empty)
+                return Result.Failure($"Mojang returned an invalid username '{refreshedUsername}' for user '{collidingUser.UserId}'.", HttpStatusCode.BadGateway);
+            
+            await UpdateUsername(collidingUser.MinecraftUuid, refreshedUsername);
+        }
+        return Result.Success();
     }
 
     public Task<Result<User>> GetSystemUser()
@@ -137,4 +193,5 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache) :
         if (string.IsNullOrWhiteSpace(username)) return false;
         return username.Length is >= 3 and <= 16 && username.All(c => char.IsLetterOrDigit(c) ||  c == '_');
     }
+    
 }

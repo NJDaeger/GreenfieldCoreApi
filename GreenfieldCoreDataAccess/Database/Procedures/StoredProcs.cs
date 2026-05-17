@@ -72,6 +72,15 @@ public static class StoredProcs
             parms.Add("p_MinecraftUuid", uuid, DbType.Guid);
             return parms;
         });
+
+        /// <summary>
+        /// Selects users by Minecraft username.
+        /// </summary>
+        public static readonly ParameterizedQueryProcedure<UserEntity, string> SelectUsersByUsername = new("`Users.usp_SelectUsersByUsername`", (minecraftUsername, parms) =>
+        {
+            parms.Add("p_MinecraftUsername", minecraftUsername, DbType.String, size: 16);
+            return parms;
+        });
         
         /// <summary>
         /// Updates a user's Minecraft username.
