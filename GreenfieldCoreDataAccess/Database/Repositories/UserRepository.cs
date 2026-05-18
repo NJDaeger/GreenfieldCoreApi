@@ -33,6 +33,20 @@ public class UserRepository(IUnitOfWork uow, ILogger<IUserRepository> logger) : 
         }
     }
 
+    public async Task<Result<IEnumerable<UserEntity>>> SelectAllUsers()
+    {
+        try
+        {
+            var result = await Connection.QueryProcedure(StoredProcs.Users.SelectAllUsers, Transaction);
+            return Result<IEnumerable<UserEntity>>.Success(result);
+        }
+        catch (DbException ex)
+        {
+            logger.LogDebug("{ErrorMessage}", ex.Message);
+            return Result<IEnumerable<UserEntity>>.Failure($"Failed to get all users: {ex.Message}");
+        }
+    }
+
     public async Task<Result<IEnumerable<UserEntity>>> SelectUsersByUsername(string minecraftUsername)
     {
         try

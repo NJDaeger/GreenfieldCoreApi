@@ -18,6 +18,23 @@ namespace GreenfieldCoreApi.Controllers;
 public class UserController(IUserService userService, IPatreonService patreonService, IDiscordService discordService, IBuilderApplicationService applicationService) : ControllerBase
 {
     /// <summary>
+    /// Gets all users. By default, returns cached users if the cache is populated. Set <paramref name="skipCache"/> to true to force a fresh database query and repopulate the cache.
+    /// </summary>
+    /// <param name="skipCache">If true, bypasses the cache, queries the database directly, and repopulates the cache with the results.</param>
+    /// <returns>All users.</returns>
+    [HttpGet("all")]
+    [Authorize(Roles = "Users.Bulk.Read,Users.Bulk,Users")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [Produces(typeof(IEnumerable<GreenfieldCoreServices.Models.Users.User>))]
+    public async Task<IActionResult> GetAllUsers([FromQuery] bool skipCache = false)
+    {
+        var result = await userService.GetAllUsers(skipCache);
+        return result.IsSuccessful
+            ? Ok(result.GetNonNullOrThrow())
+            : Problem(statusCode: result.GetStatusCodeInt(), detail: result.ErrorMessage);
+    }
+
+    /// <summary>
     /// Gets a user by their Minecraft UUID.
     /// </summary>
     /// <param name="minecraftUuid">The Minecraft UUID of the user.</param>
@@ -123,7 +140,7 @@ public class UserController(IUserService userService, IPatreonService patreonSer
     /// <param name="request">The request containing the users to be imported.</param>
     /// <returns>The result of the bulk import operation.</returns>
     [HttpPost("bulk")]
-    [Authorize(Roles = "Users.Write,Users")]
+    [Authorize(Roles = "Users.Bulk.Write,Users.Bulk,Users")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces(typeof(BulkImportUsersResult))]
     public async Task<IActionResult> BulkImportUsers([FromBody] BulkImportUsersRequest request)

@@ -74,6 +74,11 @@ public static class StoredProcs
         });
 
         /// <summary>
+        /// Selects all users.
+        /// </summary>
+        public static readonly QueryProcedure<UserEntity> SelectAllUsers = new("`Users.usp_SelectAllUsers`");
+
+        /// <summary>
         /// Selects users by Minecraft username.
         /// </summary>
         public static readonly ParameterizedQueryProcedure<UserEntity, string> SelectUsersByUsername = new("`Users.usp_SelectUsersByUsername`", (minecraftUsername, parms) =>

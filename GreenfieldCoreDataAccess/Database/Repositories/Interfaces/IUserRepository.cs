@@ -20,6 +20,12 @@ public interface IUserRepository
     Task<Result<UserEntity>> SelectUserByUuid(Guid minecraftUuid);
 
     /// <summary>
+    /// Selects all users.
+    /// </summary>
+    /// <returns>Result containing all users.</returns>
+    Task<Result<IEnumerable<UserEntity>>> SelectAllUsers();
+
+    /// <summary>
     /// Select users by Minecraft username.
     /// </summary>
     /// <param name="minecraftUsername">The Minecraft username to match.</param>

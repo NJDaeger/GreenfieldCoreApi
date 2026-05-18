@@ -52,6 +52,15 @@ public interface IUserService
     public Task<Result<IEnumerable<User>>> RefreshUsernames(IEnumerable<long> userIds);
 
     /// <summary>
+    /// Gets all users, with an option to skip the cache and query the database directly.
+    /// When <paramref name="skipCache"/> is false and the cache is populated, returns cached users.
+    /// When <paramref name="skipCache"/> is true, queries the database, repopulates the cache, and returns fresh results.
+    /// </summary>
+    /// <param name="skipCache">If true, bypasses the cache and queries the database directly, repopulating the cache with the results.</param>
+    /// <returns>All users.</returns>
+    public Task<Result<IEnumerable<User>>> GetAllUsers(bool skipCache = false);
+
+    /// <summary>
     /// Gets the system user, which is used for actions performed by the system rather than a specific user. This user has a Minecraft UUID of Guid.Empty and a username of "##System##".
     /// </summary>
     /// <returns></returns>

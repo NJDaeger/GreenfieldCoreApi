@@ -230,6 +230,24 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache, I
         return Result<IEnumerable<User>>.Success(allUpdatedUsers);
     }
 
+    public async Task<Result<IEnumerable<User>>> GetAllUsers(bool skipCache = false)
+    {
+        if (!skipCache && userCache.GetCount() > 0)
+            return Result<IEnumerable<User>>.Success(userCache.GetValues());
+
+        var repo = uow.Repository<IUserRepository>();
+        var result = await repo.SelectAllUsers();
+        if (!result.TryGetDataNonNull(out var userEntities))
+            return Result<IEnumerable<User>>.Failure(result.ErrorMessage ?? "Failed to retrieve users.");
+
+        var users = userEntities.Select(User.FromModel).ToList();
+        userCache.ClearCache();
+        foreach (var user in users)
+            userCache.SetValue(user.UserId, user);
+
+        return Result<IEnumerable<User>>.Success(users);
+    }
+
     public Task<Result<User>> GetSystemUser()
     {
         return GetUserByUuid(Guid.Empty);
