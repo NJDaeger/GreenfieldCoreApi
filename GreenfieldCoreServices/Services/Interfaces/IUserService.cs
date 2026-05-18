@@ -40,8 +40,16 @@ public interface IUserService
     /// </summary>
     /// <param name="minecraftUuid">The Minecraft UUID of the user to update</param>
     /// <param name="newUsername">The new Minecraft username to set</param>
-    /// <returns>The updated User if an update was performed; a failed Result otherwise.</returns>
-    public Task<Result<User>> UpdateUsername(Guid minecraftUuid, string newUsername);
+    /// <returns>All users updated as part of the operation (target and collision updates).</returns>
+    public Task<Result<IEnumerable<User>>> UpdateUsername(Guid minecraftUuid, string newUsername);
+
+    /// <summary>
+    /// Refreshes usernames for the provided user IDs using Mojang profile data.
+    /// Returns only users whose usernames were updated in the database.
+    /// </summary>
+    /// <param name="userIds">The user IDs to refresh.</param>
+    /// <returns>All users updated as part of the refresh operation.</returns>
+    public Task<Result<IEnumerable<User>>> RefreshUsernames(IEnumerable<long> userIds);
 
     /// <summary>
     /// Gets the system user, which is used for actions performed by the system rather than a specific user. This user has a Minecraft UUID of Guid.Empty and a username of "##System##".

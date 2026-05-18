@@ -120,74 +120,121 @@ public class UserService(IUnitOfWork uow, ICacheService<long, User> userCache, I
         return foundUser is null ? Result<User>.Failure("User not found.", HttpStatusCode.NotFound) : Result<User>.Success(User.FromModel(foundUser));
     }
 
-    public async Task<Result<User>> UpdateUsername(Guid minecraftUuid, string newUsername)
+    public async Task<Result<IEnumerable<User>>> UpdateUsername(Guid minecraftUuid, string newUsername)
     {
         // Guid.Empty is the System user, can skip validation.
         if (!IsValidUsername(newUsername) && minecraftUuid != Guid.Empty)
-            return Result<User>.Failure("A valid new username must be provided.");
-        
+            return Result<IEnumerable<User>>.Failure("A valid new username must be provided.");
+
         var repo = uow.Repository<IUserRepository>();
-        
+
         var existingUserResult = await GetUserByUuid(minecraftUuid);
-        if (!existingUserResult.IsSuccessful) return existingUserResult;
+        if (!existingUserResult.IsSuccessful) 
+            return Result<IEnumerable<User>>.Failure(existingUserResult.ErrorMessage ?? "Failed to retrieve user for update.");
         var existingUser = existingUserResult.GetNonNullOrThrow();
 
         var collisionRefreshResult = await ResolveCollisions(minecraftUuid, newUsername);
-        if (!collisionRefreshResult.IsSuccessful)
+        if (!collisionRefreshResult.TryGetDataNonNull(out var updatedCollisions))
             logger.LogWarning("Collision resolution failed while updating username for user '{UserId}' with UUID '{MinecraftUuid}' to new username '{NewUsername}': {ErrorMessage}", existingUser.UserId, minecraftUuid, newUsername, collisionRefreshResult.ErrorMessage);
-        
+
         uow.BeginTransaction();
         var updateResult = await repo.UpdateUsername(minecraftUuid, newUsername);
-        if (!updateResult.IsSuccessful) return Result<User>.Failure(updateResult.ErrorMessage ?? "Failed to update username.");
+        if (!updateResult.IsSuccessful) return Result<IEnumerable<User>>.Failure(updateResult.ErrorMessage ?? "Failed to update username.");
         uow.CompleteAndCommit();
-        
+
         existingUser.Username = newUsername;
         userCache.SetValue(existingUser.UserId, existingUser);
-        return Result<User>.Success(existingUser);
+        return Result<IEnumerable<User>>.Success(new[] { existingUser }.Concat(updatedCollisions ?? []));
     }
-    
+
+    public async Task<Result<IEnumerable<User>>> RefreshUsernames(IEnumerable<long> userIds)
+    {
+        var updatedUsers = new List<User>();
+
+        foreach (var userId in userIds)
+        {
+            var userResult = await GetUserByUserId(userId);
+            if (!userResult.IsSuccessful)
+            {
+                logger.LogWarning("Failed to retrieve user with ID '{UserId}' for username refresh: {ErrorMessage}", userId, userResult.ErrorMessage);
+                continue;
+            }
+            var user = userResult.GetNonNullOrThrow();
+            if (user.MinecraftUuid == Guid.Empty)
+            {
+                logger.LogWarning("Skipping username refresh for system user with ID '{UserId}'.", userId);
+                continue;
+            }
+
+            var mojangResult = await mojangApi.GetCurrentUsername(user.MinecraftUuid);
+            if (!mojangResult.IsSuccessful)
+            {
+                logger.LogWarning("Failed to retrieve current username from Mojang for user '{UserId}' with UUID '{MinecraftUuid}': {ErrorMessage}", userId, user.MinecraftUuid, mojangResult.ErrorMessage);
+                continue;
+            }
+            var currentUsername = mojangResult.GetNonNullOrThrow();
+            if (currentUsername.Equals(user.Username, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var updateResult = await UpdateUsername(user.MinecraftUuid, currentUsername);
+            if (!updateResult.IsSuccessful)
+            {
+                logger.LogWarning("Failed to update username for user '{UserId}' with UUID '{MinecraftUuid}' during refresh: {ErrorMessage}", userId, user.MinecraftUuid, updateResult.ErrorMessage);
+                continue;
+            }
+            updatedUsers.AddRange(updateResult.GetNonNullOrThrow());
+        }
+        return Result<IEnumerable<User>>.Success(updatedUsers);
+    }
+
     private async Task<Result<List<User>>> GetCollidingUsers(string username)
     {
         var repo = uow.Repository<IUserRepository>();
         var result = await repo.SelectUsersByUsername(username);
-        return !result.TryGetDataNonNull(out var collidingUsers) 
-            ? Result<List<User>>.Failure(result.ErrorMessage ?? "Failed to retrieve colliding users.", result.StatusCode) 
+        return !result.TryGetDataNonNull(out var collidingUsers)
+            ? Result<List<User>>.Failure(result.ErrorMessage ?? "Failed to retrieve colliding users.", result.StatusCode)
             : Result<List<User>>.Success(collidingUsers.Select(User.FromModel).ToList());
     }
 
-    private async Task<Result> ResolveCollisions(Guid minecraftUuid, string username)
+    private async Task<Result<IEnumerable<User>>> ResolveCollisions(Guid minecraftUuid, string username)
     {
         var collidingUsers = await GetCollidingUsers(username);
         if (!collidingUsers.TryGetDataNonNull(out var collidingUsersList))
-            return Result.Failure(collidingUsers.ErrorMessage ?? "Failed to retrieve colliding users for collision resolution.", collidingUsers.StatusCode);
+            return Result<IEnumerable<User>>.Failure(collidingUsers.ErrorMessage ?? "Failed to retrieve colliding users for collision resolution.", collidingUsers.StatusCode);
         
         if (collidingUsersList.Count == 0 || (collidingUsersList.Count == 1 && collidingUsersList[0].MinecraftUuid == minecraftUuid))
-            return Result.Success();
-
+            return Result<IEnumerable<User>>.Success([]);
+        
+        var allUpdatedUsers = new List<User>();
+        
         foreach (var collidingUser in collidingUsersList)
         {
             logger.LogInformation("Found colliding user '{CollidingUserId}' with UUID '{CollidingUserUuid}' for username '{Username}'. Attempting to refresh username from Mojang.", collidingUser.UserId, collidingUser.MinecraftUuid, username);
             var updatedUsername = await mojangApi.GetCurrentUsername(collidingUser.MinecraftUuid);
             
             if (!updatedUsername.TryGetDataNonNull(out var refreshedUsername))
-                return Result.Failure(updatedUsername.ErrorMessage ?? $"Failed to refresh username from Mojang for user '{collidingUser.UserId}'.", updatedUsername.StatusCode);
+                return Result<IEnumerable<User>>.Failure(updatedUsername.ErrorMessage ?? $"Failed to refresh username from Mojang for user '{collidingUser.UserId}'.", updatedUsername.StatusCode);
             
             if (refreshedUsername.Equals(username, StringComparison.OrdinalIgnoreCase))
-                return Result.Failure($"Mojang returned the same username '{refreshedUsername}' for user '{collidingUser.UserId}', which is still colliding.", HttpStatusCode.Conflict);
+                return Result<IEnumerable<User>>.Failure($"Mojang returned the same username '{refreshedUsername}' for user '{collidingUser.UserId}', which is still colliding.", HttpStatusCode.Conflict);
             
             if (!IsValidUsername(refreshedUsername) && collidingUser.MinecraftUuid != Guid.Empty)
-                return Result.Failure($"Mojang returned an invalid username '{refreshedUsername}' for user '{collidingUser.UserId}'.", HttpStatusCode.BadGateway);
+                return Result<IEnumerable<User>>.Failure($"Mojang returned an invalid username '{refreshedUsername}' for user '{collidingUser.UserId}'.", HttpStatusCode.BadGateway);
             
-            await UpdateUsername(collidingUser.MinecraftUuid, refreshedUsername);
+            var updatedUsers = await UpdateUsername(collidingUser.MinecraftUuid, refreshedUsername);
+            if (!updatedUsers.TryGetDataNonNull(out var updatedUsersList))
+                return Result<IEnumerable<User>>.Failure(updatedUsers.ErrorMessage ?? $"Failed to update username for colliding user '{collidingUser.UserId}' during collision resolution.", updatedUsers.StatusCode);
+            
+            allUpdatedUsers.AddRange(updatedUsersList);
         }
-        return Result.Success();
+        return Result<IEnumerable<User>>.Success(allUpdatedUsers);
     }
 
     public Task<Result<User>> GetSystemUser()
     {
         return GetUserByUuid(Guid.Empty);
     }
-
+    
     private bool IsValidUsername(string username)
     {
         if (string.IsNullOrWhiteSpace(username)) return false;
